@@ -1880,7 +1880,7 @@ function IncidentDetailScreen({
   const statColor = statusColors[incident.status] || theme.textFaint;
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      maxWidth: 900,
+      maxWidth: 1100,
       margin: "0 auto",
       padding: "24px 20px"
     }
@@ -1898,76 +1898,59 @@ function IncidentDetailScreen({
   }, "← Back to Incident Register"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      alignItems: "flex-start",
+      alignItems: "center",
       justifyContent: "space-between",
       flexWrap: "wrap",
       gap: 12,
-      marginBottom: 6
+      padding: "14px 18px",
+      borderRadius: "8px 8px 0 0",
+      background: priColor + "18",
+      borderBottom: `2px solid ${priColor}`
     }
   }, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontFamily: "Oswald, sans-serif",
-      fontSize: 24,
+      fontSize: 19,
       fontWeight: 700,
       color: theme.text,
       margin: 0
     }
-  }, incident.type || "Incident"), /*#__PURE__*/React.createElement("div", {
+  }, "Incident ", shortId(incident.id), " Details"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: theme.fontMono,
       fontSize: 12,
       color: theme.textFaint
     }
-  }, incident.taskedAt ? formatDT(incident.taskedAt) : "")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      margin: "10px 0"
-    }
-  }, /*#__PURE__*/React.createElement(Chip, {
-    label: (incident.priority || "").toUpperCase(),
-    color: priColor,
-    theme: theme
-  }), /*#__PURE__*/React.createElement(Chip, {
+  }, incident.taskedAt ? formatDT(incident.taskedAt) : ""), /*#__PURE__*/React.createElement(Chip, {
     label: (incident.status || "").toUpperCase(),
     color: statColor,
     theme: theme
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.fontMono,
-      fontSize: 12,
-      color: theme.textGhost,
-      marginBottom: 20
-    }
-  }, shortId(incident.id)), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 32
+      gridTemplateColumns: "1.4fr 1fr",
+      gap: 24,
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderTop: "none",
+      borderRadius: "0 0 8px 8px",
+      padding: 22
     }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(DetailSection, {
     title: "Incident Details",
     theme: theme
-  }, /*#__PURE__*/React.createElement(DetailRow, {
-    label: "Situation On Scene",
-    value: incident.situationOnScene,
-    theme: theme
-  }), /*#__PURE__*/React.createElement(DetailRow, {
-    label: "Referring Agency",
-    value: incident.referringAgency ? incident.referringAgency + (incident.agencyRef ? ` (ref: ${incident.agencyRef})` : "") : null,
-    theme: theme
-  }), /*#__PURE__*/React.createElement(DetailRow, {
-    label: "Requesting Agency",
-    value: incident.requestingAgency ? incident.requestingAgency + (incident.requestingAgencyRef ? ` (ref: ${incident.requestingAgencyRef})` : "") : null,
-    theme: theme
-  })), tags.length > 0 && /*#__PURE__*/React.createElement(DetailSection, {
-    title: "Tags",
-    theme: theme
-  }, /*#__PURE__*/React.createElement("div", {
+  }, tags.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexWrap: "wrap",
-      gap: 6
+      gap: 6,
+      marginBottom: 10
     }
   }, tags.map(t => /*#__PURE__*/React.createElement("span", {
     key: t,
@@ -1980,7 +1963,19 @@ function IncidentDetailScreen({
       borderRadius: 5,
       fontFamily: theme.fontUi
     }
-  }, t)))), /*#__PURE__*/React.createElement(DetailSection, {
+  }, t))), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Situation On Scene",
+    value: incident.situationOnScene,
+    theme: theme
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Response Required",
+    value: incident.priority,
+    theme: theme
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Referring Agency",
+    value: incident.referringAgency ? incident.referringAgency + (incident.agencyRef ? ` (ref: ${incident.agencyRef})` : "") : null,
+    theme: theme
+  })), /*#__PURE__*/React.createElement(DetailSection, {
     title: "Incident Location",
     theme: theme
   }, /*#__PURE__*/React.createElement(DetailRow, {
@@ -2011,6 +2006,10 @@ function IncidentDetailScreen({
     title: "Caller Details",
     theme: theme
   }, /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Requesting Agency",
+    value: incident.requestingAgency ? incident.requestingAgency + (incident.requestingAgencyRef ? ` (ref: ${incident.requestingAgencyRef})` : "") : null,
+    theme: theme
+  }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Number",
     value: incident.callersNumber,
     theme: theme
@@ -2034,7 +2033,7 @@ function IncidentDetailScreen({
     value: incident.contactNumber,
     theme: theme
   }))), /*#__PURE__*/React.createElement("div", null, timeline.length > 0 && /*#__PURE__*/React.createElement(DetailSection, {
-    title: "Status Timeline",
+    title: "Time Line",
     theme: theme
   }, timeline.slice(0, 20).map((e, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
