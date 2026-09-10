@@ -176,6 +176,7 @@ const TAG_TAXONOMY = [{
     tags: ["Clean-up Assistance", "Furniture Lift Required", "General Assistance", "Other", "Pumping Required", "Recovery Assistance", "Sandbags Required"]
   }]
 }];
+function shortId(id) { return (id || "").replace(/^Incident /, ""); }
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
