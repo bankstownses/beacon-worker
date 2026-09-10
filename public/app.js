@@ -10,7 +10,7 @@ const SERVER_URL = "https://api.bankstownses.com";
 const INCIDENTS_APP_URL = "https://incidents.bankstownses.com";
 const VEHICLES = ["BKK31", "BKK32", "BKK33", "BKK36", "BKK37", "BKK44", "BKK56", "SES59", "SES43K", "BKK-FEIGE", "BKK-ALLPORT", "BKK-OFEIGE"];
 const RESCUE_TYPES = ["FR", "RCR", "GLR", "CFR", "VR", "LAR"];
-const INCIDENT_TYPES = ["Storm", "Support", "Tsunami"];
+const INCIDENT_TYPES = ["Storm", "Support", "Flood Support", "Tsunami"];
 const FLOOD_RESCUE_CATEGORY_DESC = {
   1: "Critical assistance – person underwater / rescuer in duress",
   2: "Imminent threat to life – person in water",
@@ -357,6 +357,33 @@ const PRIORITY_COLORS_LIGHT = {
   Priority: "#b7860b",
   General: "#2f6fb0"
 };
+
+// HQ display codes and the zone (Parent HQ) each one belongs to.
+const HQ_CODES = { "Bankstown": "BKK" };
+const HQ_ZONE_CODES = { "Bankstown": "MTZ" };
+
+// The Categories column shows the PSCU letter (Orange=O, Red=R) and/or
+// the Flood Rescue Category number (1-5) -- combined as e.g. "R3" when
+// both are set on the incident.
+function categoryLabel(inc) {
+  const pscuLetter = inc.pscuCategory === "Orange" ? "O" : inc.pscuCategory === "Red" ? "R" : null;
+  const floodNum = inc.floodRescueCategory || null;
+  if (pscuLetter && floodNum) return `${pscuLetter}${floodNum}`;
+  if (pscuLetter) return pscuLetter;
+  if (floodNum) return floodNum;
+  return "—";
+}
+
+// Response-type colour for the Register: life-threatening jobs and
+// Priority/Immediate responses get specific fixed colours; General
+// keeps whatever the theme's normal colour already is.
+function priorityDisplayColor(inc, fallbackColors) {
+  if (inc.lifeThreatening === "Yes") return "#a94442";
+  if (inc.priority === "Priority") return "#8a6d3b";
+  if (inc.priority === "Immediate") return "#31708f";
+  return fallbackColors[inc.priority] || fallbackColors.General;
+}
+
 const STATUS_COLORS_DARK = {
   New: "#8A6FD1",
   Active: "#2F8FD1",
@@ -722,9 +749,13 @@ function JobsRegisterScreen({
     style: th
   }, "Categories"), /*#__PURE__*/React.createElement("th", {
     style: th
+  }, "FRAO"), /*#__PURE__*/React.createElement("th", {
+    style: th
   }, "Status"), /*#__PURE__*/React.createElement("th", {
     style: th
   }, "HQ"), /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "Parent HQ"), /*#__PURE__*/React.createElement("th", {
     style: th
   }, "Address"))), /*#__PURE__*/React.createElement("tbody", null, incidents.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     style: {
@@ -732,11 +763,13 @@ function JobsRegisterScreen({
       textAlign: "center",
       color: theme.textGhost
     },
-    colSpan: 8
+    colSpan: 10
   }, "No incidents created yet.")) : incidents.map(inc => {
-    const category = inc.rescueType || inc.incidentTypeCategory || "General";
-    const priColor = priorityColors[inc.priority] || theme.textFaint;
+    const typeLabel = inc.incidentTypeCategory || inc.rescueType || "—";
+    const priColor = priorityDisplayColor(inc, priorityColors);
     const statColor = statusColors[inc.status] || theme.textFaint;
+    const hqCode = HQ_CODES[inc.assignedHQ] || inc.assignedHQ || "—";
+    const parentHqCode = HQ_ZONE_CODES[inc.assignedHQ] || "—";
     return /*#__PURE__*/React.createElement("tr", {
       key: inc.id,
       onClick: () => navigate(`/Jobs/${parseInt(shortId(inc.id).replace(/[^0-9]/g, ""), 10)}`),
@@ -771,10 +804,13 @@ function JobsRegisterScreen({
     })), /*#__PURE__*/React.createElement("td", {
       "data-label": "Type",
       style: td
-    }, inc.type || "—"), /*#__PURE__*/React.createElement("td", {
+    }, typeLabel), /*#__PURE__*/React.createElement("td", {
       "data-label": "Categories",
       style: td
-    }, category), /*#__PURE__*/React.createElement("td", {
+    }, categoryLabel(inc)), /*#__PURE__*/React.createElement("td", {
+      "data-label": "FRAO",
+      style: td
+    }, ""), /*#__PURE__*/React.createElement("td", {
       "data-label": "Status",
       style: td
     }, /*#__PURE__*/React.createElement(Chip, {
@@ -784,7 +820,10 @@ function JobsRegisterScreen({
     })), /*#__PURE__*/React.createElement("td", {
       "data-label": "HQ",
       style: td
-    }, inc.assignedHQ || "—"), /*#__PURE__*/React.createElement("td", {
+    }, hqCode), /*#__PURE__*/React.createElement("td", {
+      "data-label": "Parent HQ",
+      style: td
+    }, parentHqCode), /*#__PURE__*/React.createElement("td", {
       "data-label": "Address",
       style: {
         ...td,
