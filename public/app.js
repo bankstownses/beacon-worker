@@ -156,6 +156,23 @@ const TAG_TAXONOMY = [{
   }]
 }];
 function shortId(id) { return (id || "").replace(/^Incident /, ""); }
+
+// Blends fgHex at the given alpha (0-1) over bgHex, returning a fully
+// opaque solid colour -- used for the sticky Id column, which can't
+// use a translucent tint or cells scrolling underneath it show through.
+function blendOverBg(fgHex, alpha, bgHex) {
+  const hexToRgb = (h) => {
+    const n = parseInt(h.replace("#", ""), 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  };
+  const fg = hexToRgb(fgHex);
+  const bg = hexToRgb(bgHex);
+  const r = Math.round(bg.r * (1 - alpha) + fg.r * alpha);
+  const g = Math.round(bg.g * (1 - alpha) + fg.g * alpha);
+  const b = Math.round(bg.b * (1 - alpha) + fg.b * alpha);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -776,6 +793,11 @@ function JobsRegisterScreen({
     const isTinted = priColor !== theme.text;
     const baseBg = isTinted ? priColor + "40" : theme.panel;
     const hoverBg = isTinted ? priColor + "63" : theme.tableRowHover;
+    // The sticky Id column has real content scrolling underneath it,
+    // so it needs a fully opaque background -- a translucent tint
+    // would let those cells show through as they pass under it.
+    const stickyBaseBg = isTinted ? blendOverBg(priColor, 0.25, theme.panel) : theme.panel;
+    const stickyHoverBg = isTinted ? blendOverBg(priColor, 0.39, theme.panel) : theme.tableRowHover;
     return /*#__PURE__*/React.createElement("tr", {
       key: inc.id,
       onClick: () => navigate(`/Jobs/${parseInt(shortId(inc.id).replace(/[^0-9]/g, ""), 10)}`),
@@ -787,12 +809,12 @@ function JobsRegisterScreen({
       onMouseEnter: e => {
         e.currentTarget.style.background = hoverBg;
         const firstCell = e.currentTarget.firstElementChild;
-        if (firstCell) firstCell.style.background = hoverBg;
+        if (firstCell) firstCell.style.background = stickyHoverBg;
       },
       onMouseLeave: e => {
         e.currentTarget.style.background = isTinted ? baseBg : "transparent";
         const firstCell = e.currentTarget.firstElementChild;
-        if (firstCell) firstCell.style.background = baseBg;
+        if (firstCell) firstCell.style.background = stickyBaseBg;
       }
     }, /*#__PURE__*/React.createElement("td", {
       "data-label": "Id",
@@ -800,7 +822,7 @@ function JobsRegisterScreen({
         ...td,
         fontFamily: theme.fontMono,
         color: theme.textMuted,
-        background: baseBg
+        background: stickyBaseBg
       }
     }, shortId(inc.id)), /*#__PURE__*/React.createElement("td", {
       "data-label": "Received",
