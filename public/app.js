@@ -1859,10 +1859,165 @@ function DetailSection({
     }
   }, title), children);
 }
+function resizeImageFile(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      img.onerror = reject;
+      img.onload = () => {
+        let {
+          width,
+          height
+        } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round(height * (maxDim / width));
+            width = maxDim;
+          } else {
+            width = Math.round(width * (maxDim / height));
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl.split(",")[1]);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function PhotosSection({
+  incident,
+  theme,
+  dispatch
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const fileInputRef = useRef(null);
+  const photos = Array.isArray(incident.photos) ? incident.photos : [];
+  const onFileChosen = async e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const dataBase64 = await resizeImageFile(file, 1600, 0.8);
+      await dispatch("UPLOAD_PHOTO", {
+        incidentId: incident.id,
+        filename: file.name,
+        mimeType: "image/jpeg",
+        dataBase64
+      });
+    } catch (err) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+  const deletePhoto = async photoId => {
+    try {
+      await dispatch("DELETE_PHOTO", {
+        incidentId: incident.id,
+        photoId
+      });
+    } catch (err) {
+      setError(err.message || "Delete failed");
+    }
+  };
+  return /*#__PURE__*/React.createElement(DetailSection, {
+    title: "Photos",
+    theme: theme
+  }, error && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "#a94442",
+      fontSize: 12.5,
+      fontFamily: theme.fontUi,
+      marginBottom: 8
+    }
+  }, error), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 10,
+      marginBottom: 12
+    }
+  }, photos.map(p => /*#__PURE__*/React.createElement("div", {
+    key: p.id,
+    style: {
+      position: "relative",
+      width: 92,
+      height: 92
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: `${SERVER_URL}/photo/${p.id}`,
+    target: "_blank",
+    rel: "noopener noreferrer"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: `${SERVER_URL}/photo/${p.id}`,
+    alt: p.filename,
+    style: {
+      width: 92,
+      height: 92,
+      objectFit: "cover",
+      borderRadius: 6,
+      border: `1px solid ${theme.border}`,
+      display: "block"
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deletePhoto(p.id),
+    title: "Delete photo",
+    style: {
+      position: "absolute",
+      top: -6,
+      right: -6,
+      width: 20,
+      height: 20,
+      borderRadius: "50%",
+      background: "#a94442",
+      color: "#fff",
+      border: "none",
+      cursor: "pointer",
+      fontSize: 12,
+      lineHeight: "20px",
+      padding: 0,
+      fontFamily: theme.fontUi
+    }
+  }, "×")))), /*#__PURE__*/React.createElement("input", {
+    ref: fileInputRef,
+    type: "file",
+    accept: "image/*",
+    onChange: onFileChosen,
+    style: {
+      display: "none"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => fileInputRef.current?.click(),
+    disabled: uploading,
+    style: {
+      background: "none",
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      color: theme.textMuted,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 12.5,
+      padding: "8px 14px",
+      cursor: uploading ? "default" : "pointer"
+    }
+  }, uploading ? "Uploading…" : "+ Upload Photo"));
+}
 function IncidentDetailScreen({
   state,
   theme,
   navigate,
+  dispatch,
   slug
 }) {
   const incident = (state?.allIncidents || []).find(inc => {
@@ -1905,7 +2060,7 @@ function IncidentDetailScreen({
   }
   const timeline = state.incidentTimelines?.[incident.id] || [];
   const tags = Array.isArray(incident.tags) ? incident.tags : [];
-  const priColor = priorityColors[incident.priority] || theme.textFaint;
+  const priColor = priorityDisplayColor(incident, theme);
   const statColor = statusColors[incident.status] || theme.textFaint;
   return /*#__PURE__*/React.createElement("div", {
     className: "page-wrap"
@@ -2043,7 +2198,11 @@ function IncidentDetailScreen({
     label: "Number",
     value: incident.contactNumber,
     theme: theme
-  }))), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement(PhotosSection, {
+    incident: incident,
+    theme: theme,
+    dispatch: dispatch
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       minWidth: 0
     }
@@ -2099,6 +2258,7 @@ function App() {
     state: state,
     theme: theme,
     navigate: navigate,
+    dispatch: dispatch,
     slug: jobDetailMatch[1]
   });else if (path === "/Jobs") page = /*#__PURE__*/React.createElement(JobsRegisterScreen, {
     state: state,
