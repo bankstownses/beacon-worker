@@ -774,8 +774,8 @@ function JobsRegisterScreen({
     // Immediate, and life-threatening jobs get the whole row tinted
     // with their colour, not just the Response chip.
     const isTinted = priColor !== theme.text;
-    const baseBg = isTinted ? priColor + "1c" : theme.panel;
-    const hoverBg = isTinted ? priColor + "30" : theme.tableRowHover;
+    const baseBg = isTinted ? priColor + "40" : theme.panel;
+    const hoverBg = isTinted ? priColor + "63" : theme.tableRowHover;
     return /*#__PURE__*/React.createElement("tr", {
       key: inc.id,
       onClick: () => navigate(`/Jobs/${parseInt(shortId(inc.id).replace(/[^0-9]/g, ""), 10)}`),
