@@ -376,12 +376,13 @@ function categoryLabel(inc) {
 
 // Response-type colour for the Register: life-threatening jobs and
 // Priority/Immediate responses get specific fixed colours; General
-// keeps whatever the theme's normal colour already is.
-function priorityDisplayColor(inc, fallbackColors) {
+// uses the theme's normal text colour (white in dark mode) instead
+// of the old blue.
+function priorityDisplayColor(inc, theme) {
   if (inc.lifeThreatening === "Yes") return "#a94442";
   if (inc.priority === "Priority") return "#8a6d3b";
   if (inc.priority === "Immediate") return "#31708f";
-  return fallbackColors[inc.priority] || fallbackColors.General;
+  return theme.text;
 }
 
 const STATUS_COLORS_DARK = {
@@ -728,8 +729,7 @@ function JobsRegisterScreen({
     style: {
       background: theme.panel,
       border: `1px solid ${theme.border}`,
-      borderRadius: 8,
-      overflow: "hidden"
+      borderRadius: 8
     }
   }, /*#__PURE__*/React.createElement("table", {
     className: "jobs-table"
@@ -766,25 +766,41 @@ function JobsRegisterScreen({
     colSpan: 10
   }, "No incidents created yet.")) : incidents.map(inc => {
     const typeLabel = inc.incidentTypeCategory || inc.rescueType || "—";
-    const priColor = priorityDisplayColor(inc, priorityColors);
+    const priColor = priorityDisplayColor(inc, theme);
     const statColor = statusColors[inc.status] || theme.textFaint;
     const hqCode = HQ_CODES[inc.assignedHQ] || inc.assignedHQ || "—";
     const parentHqCode = HQ_ZONE_CODES[inc.assignedHQ] || "—";
+    // General incidents keep the normal row background; Priority,
+    // Immediate, and life-threatening jobs get the whole row tinted
+    // with their colour, not just the Response chip.
+    const isTinted = priColor !== theme.text;
+    const baseBg = isTinted ? priColor + "1c" : theme.panel;
+    const hoverBg = isTinted ? priColor + "30" : theme.tableRowHover;
     return /*#__PURE__*/React.createElement("tr", {
       key: inc.id,
       onClick: () => navigate(`/Jobs/${parseInt(shortId(inc.id).replace(/[^0-9]/g, ""), 10)}`),
       style: {
         cursor: "pointer",
-        borderBottom: `1px solid ${theme.tableRowBorder}`
+        borderBottom: `1px solid ${theme.tableRowBorder}`,
+        background: isTinted ? baseBg : "transparent"
       },
-      onMouseEnter: e => e.currentTarget.style.background = theme.tableRowHover,
-      onMouseLeave: e => e.currentTarget.style.background = "transparent"
+      onMouseEnter: e => {
+        e.currentTarget.style.background = hoverBg;
+        const firstCell = e.currentTarget.firstElementChild;
+        if (firstCell) firstCell.style.background = hoverBg;
+      },
+      onMouseLeave: e => {
+        e.currentTarget.style.background = isTinted ? baseBg : "transparent";
+        const firstCell = e.currentTarget.firstElementChild;
+        if (firstCell) firstCell.style.background = baseBg;
+      }
     }, /*#__PURE__*/React.createElement("td", {
       "data-label": "Id",
       style: {
         ...td,
         fontFamily: theme.fontMono,
-        color: theme.textMuted
+        color: theme.textMuted,
+        background: baseBg
       }
     }, shortId(inc.id)), /*#__PURE__*/React.createElement("td", {
       "data-label": "Received",
