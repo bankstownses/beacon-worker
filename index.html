@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>beacon — Bankstown Unit</title>
+<meta name="theme-color" content="#05070a" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+  html, body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;color:#7C8791;font-size:13px;background:#05070a;">
+    Loading beacon…
+  </div>
+</div>
+<script type="module">
+import React, { useState, useEffect, useRef, createContext, useContext } from "https://esm.sh/react@18.3.1";
+import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
+import { ClipboardList, Plus, Send, Sun, Moon, RefreshCw, Wifi, WifiOff } from "https://esm.sh/lucide-react@0.383.0?deps=react@18.3.1";
+
+// ---------------------------------------------------------------
+// This talks to the same live backend as the rest of the BKK apps,
+// so it shows real, current data immediately -- no separate setup.
+// ---------------------------------------------------------------
+const SERVER_URL = "https://api.bankstownses.com";
+const INCIDENTS_APP_URL = "https://incidents.bankstownses.com";
+function shortId(id) {
+  return (id || "").replace(/^Incident /, "");
+}
+function formatDT(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString("en-AU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+}
+
+// ---------------------------------------------------------------
+// SERVER STATE -- polls /state, exposes dispatch() for /action
+// ---------------------------------------------------------------
+function useServerState(serverUrl) {
+  const [state, setState] = useState(null);
+  const [connected, setConnected] = useState(null);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    let timer = null;
+    const poll = async () => {
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(`${serverUrl}/state`, {
+          headers: {
+            "ngrok-skip-browser-warning": "true"
+          },
+          signal: controller.signal
+        });
+        clearTimeout(t);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setState(data);
+          setConnected(true);
+          setError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setConnected(false);
+          setError(e.message);
+        }
+      } finally {
+        if (!cancelled) timer = setTimeout(poll, 3000);
+      }
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [serverUrl]);
+  const dispatch = async (type, payload) => {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch(`${serverUrl}/action`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true"
+        },
+        body: JSON.stringify({
+          type,
+          payload
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(t);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Action failed");
+      if (data.state) setState(data.state);
+      return data.result;
+    } catch (e) {
+      clearTimeout(t);
+      throw e;
+    }
+  };
+  return {
+    state,
+    connected,
+    error,
+    dispatch
+  };
+}
+
+// ---------------------------------------------------------------
+// ROUTER -- real URL paths via the History API, no hash routing.
+// ---------------------------------------------------------------
+function useRouter() {
+  const [path, setPath] = useState(window.location.pathname);
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const navigate = to => {
+    if (to === window.location.pathname) return;
+    window.history.pushState({}, "", to);
+    setPath(to);
+    window.scrollTo(0, 0);
+  };
+  return {
+    path,
+    navigate
+  };
+}
+function Link({
+  to,
+  navigate,
+  children,
+  style,
+  className
+}) {
+  return /*#__PURE__*/React.createElement("a", {
+    href: to,
+    className: className,
+    onClick: e => {
+      e.preventDefault();
+      navigate(to);
+    },
+    style: {
+      textDecoration: "none",
+      cursor: "pointer",
+      ...style
+    }
+  }, children);
+}
+
+// ---------------------------------------------------------------
+// THEME -- toggles between BKK's dark theme and a light theme
+// styled after the real Beacon system.
+// ---------------------------------------------------------------
+const THEMES = {
+  dark: {
+    name: "dark",
+    bg: "#05070a",
+    panel: "#161B20",
+    panelAlt: "#0d1114",
+    border: "#2E373F",
+    text: "#F2F5F6",
+    textMuted: "#B7C0C8",
+    textFaint: "#7C8791",
+    textGhost: "#5c6771",
+    accent: "#2F8FD1",
+    accentText: "#05070a",
+    navBg: "#0d1114",
+    navText: "#F2F5F6",
+    navBorder: "#1c2228",
+    tableHeadBg: "#161B20",
+    tableRowBorder: "#1c2228",
+    tableRowHover: "#161B20",
+    fontUi: "Inter, -apple-system, sans-serif",
+    fontMono: "'JetBrains Mono', monospace"
+  },
+  light: {
+    name: "light",
+    bg: "#eef1f4",
+    panel: "#ffffff",
+    panelAlt: "#f7f8fa",
+    border: "#d7dde3",
+    text: "#1f2933",
+    textMuted: "#3e4c59",
+    textFaint: "#7b8794",
+    textGhost: "#9aa5b1",
+    accent: "#2f6fb0",
+    accentText: "#ffffff",
+    navBg: "#2c3e50",
+    navText: "#ffffff",
+    navBorder: "#1f2c39",
+    tableHeadBg: "#f7f8fa",
+    tableRowBorder: "#e4e9ed",
+    tableRowHover: "#f2f5f8",
+    fontUi: "-apple-system, 'Segoe UI', Arial, sans-serif",
+    fontMono: "Consolas, monospace"
+  }
+};
+const ThemeContext = createContext(THEMES.dark);
+function useTheme() {
+  return useContext(ThemeContext);
+}
+const PRIORITY_COLORS_DARK = {
+  Immediate: "#D9463D",
+  Priority: "#E8B23C",
+  General: "#2F8FD1"
+};
+const PRIORITY_COLORS_LIGHT = {
+  Immediate: "#c0392b",
+  Priority: "#b7860b",
+  General: "#2f6fb0"
+};
+const STATUS_COLORS_DARK = {
+  New: "#8A6FD1",
+  Active: "#2F8FD1",
+  Tasked: "#E8B23C",
+  Rejected: "#D9463D",
+  Cancelled: "#7C8791",
+  Complete: "#3FA34D",
+  Finalised: "#3a444d"
+};
+const STATUS_COLORS_LIGHT = {
+  New: "#6c5ce7",
+  Active: "#2f6fb0",
+  Tasked: "#b7860b",
+  Rejected: "#c0392b",
+  Cancelled: "#7b8794",
+  Complete: "#2e8b57",
+  Finalised: "#5a6470"
+};
+function Chip({
+  label,
+  color,
+  theme
+}) {
+  return /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: theme.fontMono,
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: "0.02em",
+      color,
+      background: color + "22",
+      border: `1px solid ${color}55`,
+      padding: "2px 8px",
+      borderRadius: 5,
+      display: "inline-block",
+      whiteSpace: "nowrap"
+    }
+  }, label);
+}
+
+// ---------------------------------------------------------------
+// TOP NAV
+// ---------------------------------------------------------------
+function TopNav({
+  path,
+  navigate,
+  theme,
+  toggleTheme
+}) {
+  const [jobsOpen, setJobsOpen] = useState(false);
+  const linkStyle = active => ({
+    color: theme.navText,
+    fontFamily: theme.fontUi,
+    fontSize: 14,
+    fontWeight: active ? 700 : 500,
+    padding: "10px 14px",
+    opacity: active ? 1 : 0.85
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.navBg,
+      borderBottom: `1px solid ${theme.navBorder}`,
+      position: "sticky",
+      top: 0,
+      zIndex: 50
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 1200,
+      margin: "0 auto",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "0 20px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement(Link, {
+    to: "/",
+    navigate: navigate,
+    style: {
+      color: theme.navText,
+      fontFamily: "Oswald, sans-serif",
+      fontWeight: 700,
+      fontSize: 18,
+      padding: "14px 16px 14px 0"
+    }
+  }, "beacon"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "relative"
+    },
+    onMouseEnter: () => setJobsOpen(true),
+    onMouseLeave: () => setJobsOpen(false)
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      ...linkStyle(path.startsWith("/Jobs")),
+      cursor: "pointer",
+      display: "inline-block"
+    }
+  }, "Incidents ▾"), jobsOpen && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: "100%",
+      left: 0,
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      minWidth: 200,
+      boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+      overflow: "hidden"
+    }
+  }, [{
+    to: "/Jobs/Create",
+    label: "Create New Incident"
+  }, {
+    to: "/Jobs",
+    label: "Incident Register"
+  }, {
+    to: "/Jobs/Tasking",
+    label: "Tasking"
+  }].map(item => /*#__PURE__*/React.createElement(Link, {
+    key: item.to,
+    to: item.to,
+    navigate: navigate,
+    style: {
+      display: "block",
+      padding: "10px 16px",
+      color: theme.text,
+      fontFamily: theme.fontUi,
+      fontSize: 13.5,
+      borderBottom: `1px solid ${theme.border}`
+    }
+  }, item.label))))), /*#__PURE__*/React.createElement("button", {
+    onClick: toggleTheme,
+    title: "Toggle theme",
+    style: {
+      background: "none",
+      border: `1px solid ${theme.navBorder}`,
+      borderRadius: 6,
+      color: theme.navText,
+      padding: "6px 10px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: 12.5,
+      fontFamily: theme.fontUi
+    }
+  }, theme.name === "dark" ? /*#__PURE__*/React.createElement(Sun, {
+    size: 14
+  }) : /*#__PURE__*/React.createElement(Moon, {
+    size: 14
+  }), theme.name === "dark" ? "Light" : "Dark")));
+}
+function ConnectionBar({
+  connected,
+  error,
+  theme
+}) {
+  if (connected !== false) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#D9463D18",
+      borderBottom: "1px solid #D9463D55",
+      color: "#D9463D",
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      padding: "7px 20px",
+      textAlign: "center"
+    }
+  }, "Can't reach the server", error ? ` (${error})` : "", " — retrying…");
+}
+
+// ---------------------------------------------------------------
+// DASHBOARD (/)
+// ---------------------------------------------------------------
+function Dashboard({
+  state,
+  navigate,
+  theme
+}) {
+  const incidents = state?.allIncidents || [];
+  const activeCount = incidents.filter(i => i.status === "Active" || i.status === "New").length;
+  const completeCount = incidents.filter(i => i.status === "Complete" || i.status === "Finalised").length;
+  const statCard = (label, value, color) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      padding: "18px 20px",
+      flex: 1,
+      minWidth: 160
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12,
+      color: theme.textFaint,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.04em",
+      marginBottom: 6
+    }
+  }, label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "Oswald, sans-serif",
+      fontSize: 32,
+      fontWeight: 700,
+      color: color || theme.text
+    }
+  }, value));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 1200,
+      margin: "0 auto",
+      padding: "28px 20px"
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontFamily: "Oswald, sans-serif",
+      fontSize: 24,
+      fontWeight: 700,
+      color: theme.text,
+      marginBottom: 4
+    }
+  }, "Dashboard"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      color: theme.textFaint,
+      marginBottom: 24
+    }
+  }, "Bankstown Unit"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 16,
+      flexWrap: "wrap",
+      marginBottom: 28
+    }
+  }, statCard("Total Incidents", incidents.length), statCard("Active / New", activeCount, theme.accent), statCard("Complete", completeCount)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 12,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement(Link, {
+    to: "/Jobs/Create",
+    navigate: navigate,
+    style: {
+      background: theme.accent,
+      color: theme.accentText,
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 13.5,
+      padding: "11px 20px",
+      borderRadius: 7,
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(Plus, {
+    size: 15
+  }), " Create New Incident"), /*#__PURE__*/React.createElement(Link, {
+    to: "/Jobs",
+    navigate: navigate,
+    style: {
+      background: "none",
+      color: theme.text,
+      border: `1px solid ${theme.border}`,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 13.5,
+      padding: "11px 20px",
+      borderRadius: 7,
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(ClipboardList, {
+    size: 15
+  }), " Incident Register"), /*#__PURE__*/React.createElement(Link, {
+    to: "/Jobs/Tasking",
+    navigate: navigate,
+    style: {
+      background: "none",
+      color: theme.text,
+      border: `1px solid ${theme.border}`,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 13.5,
+      padding: "11px 20px",
+      borderRadius: 7,
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(Send, {
+    size: 15
+  }), " Tasking")));
+}
+
+// ---------------------------------------------------------------
+// INCIDENT REGISTER (/Jobs) -- real table, matching the columns
+// from the actual Beacon Incident Register.
+// ---------------------------------------------------------------
+function JobsRegisterScreen({
+  state,
+  theme
+}) {
+  const incidents = state?.allIncidents || [];
+  const priorityColors = theme.name === "dark" ? PRIORITY_COLORS_DARK : PRIORITY_COLORS_LIGHT;
+  const statusColors = theme.name === "dark" ? STATUS_COLORS_DARK : STATUS_COLORS_LIGHT;
+  const th = {
+    textAlign: "left",
+    padding: "10px 14px",
+    fontFamily: theme.fontUi,
+    fontSize: 11.5,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.03em",
+    color: theme.textFaint,
+    borderBottom: `1px solid ${theme.border}`,
+    whiteSpace: "nowrap"
+  };
+  const td = {
+    padding: "11px 14px",
+    fontFamily: theme.fontUi,
+    fontSize: 13,
+    color: theme.text,
+    borderBottom: `1px solid ${theme.tableRowBorder}`,
+    verticalAlign: "top"
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 1200,
+      margin: "0 auto",
+      padding: "24px 20px"
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontFamily: "Oswald, sans-serif",
+      fontSize: 22,
+      fontWeight: 700,
+      color: theme.text,
+      marginBottom: 4
+    }
+  }, "Incident Register"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      color: theme.textFaint,
+      marginBottom: 18
+    }
+  }, incidents.length, " incidents"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      overflow: "hidden",
+      overflowX: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    style: {
+      width: "100%",
+      borderCollapse: "collapse"
+    }
+  }, /*#__PURE__*/React.createElement("thead", {
+    style: {
+      background: theme.tableHeadBg
+    }
+  }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "Id"), /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "Received"), /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "Response"), /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "Type"), /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "Categories"), /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "Status"), /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "HQ"), /*#__PURE__*/React.createElement("th", {
+    style: th
+  }, "Address"))), /*#__PURE__*/React.createElement("tbody", null, incidents.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    style: {
+      ...td,
+      textAlign: "center",
+      color: theme.textGhost
+    },
+    colSpan: 8
+  }, "No incidents created yet.")) : incidents.map(inc => {
+    const category = inc.rescueType || inc.incidentTypeCategory || "General";
+    const priColor = priorityColors[inc.priority] || theme.textFaint;
+    const statColor = statusColors[inc.status] || theme.textFaint;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: inc.id,
+      onClick: () => window.open(`${INCIDENTS_APP_URL}/${parseInt(shortId(inc.id).replace(/[^0-9]/g, ""), 10)}`, "_blank"),
+      style: {
+        cursor: "pointer"
+      },
+      onMouseEnter: e => e.currentTarget.style.background = theme.tableRowHover,
+      onMouseLeave: e => e.currentTarget.style.background = "transparent"
+    }, /*#__PURE__*/React.createElement("td", {
+      style: {
+        ...td,
+        fontFamily: theme.fontMono,
+        color: theme.textMuted
+      }
+    }, shortId(inc.id)), /*#__PURE__*/React.createElement("td", {
+      style: {
+        ...td,
+        fontFamily: theme.fontMono,
+        fontSize: 12,
+        whiteSpace: "nowrap"
+      }
+    }, formatDT(inc.taskedAt)), /*#__PURE__*/React.createElement("td", {
+      style: td
+    }, /*#__PURE__*/React.createElement(Chip, {
+      label: (inc.priority || "General").toUpperCase(),
+      color: priColor,
+      theme: theme
+    })), /*#__PURE__*/React.createElement("td", {
+      style: td
+    }, inc.type || "—"), /*#__PURE__*/React.createElement("td", {
+      style: td
+    }, category), /*#__PURE__*/React.createElement("td", {
+      style: td
+    }, /*#__PURE__*/React.createElement(Chip, {
+      label: (inc.status || "").toUpperCase(),
+      color: statColor,
+      theme: theme
+    })), /*#__PURE__*/React.createElement("td", {
+      style: td
+    }, inc.assignedHQ || "—"), /*#__PURE__*/React.createElement("td", {
+      style: {
+        ...td,
+        maxWidth: 280,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      }
+    }, inc.addr || "—"));
+  })))));
+}
+function ComingSoon({
+  title,
+  theme
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 1200,
+      margin: "0 auto",
+      padding: "60px 20px",
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontFamily: "Oswald, sans-serif",
+      fontSize: 22,
+      fontWeight: 700,
+      color: theme.text,
+      marginBottom: 8
+    }
+  }, title), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 13.5,
+      color: theme.textFaint
+    }
+  }, "This page is being built next."));
+}
+
+// ---------------------------------------------------------------
+// APP
+// ---------------------------------------------------------------
+function App() {
+  const {
+    state,
+    connected,
+    error,
+    dispatch
+  } = useServerState(SERVER_URL);
+  const {
+    path,
+    navigate
+  } = useRouter();
+  const [themeName, setThemeName] = useState(() => localStorage.getItem("beacon_theme") || "dark");
+  const theme = THEMES[themeName];
+  const toggleTheme = () => {
+    const next = themeName === "dark" ? "light" : "dark";
+    setThemeName(next);
+    localStorage.setItem("beacon_theme", next);
+  };
+  let page;
+  if (path === "/Jobs") page = /*#__PURE__*/React.createElement(JobsRegisterScreen, {
+    state: state,
+    theme: theme
+  });else if (path === "/Jobs/Create") page = /*#__PURE__*/React.createElement(ComingSoon, {
+    title: "Create New Incident",
+    theme: theme
+  });else if (path === "/Jobs/Tasking") page = /*#__PURE__*/React.createElement(ComingSoon, {
+    title: "Tasking",
+    theme: theme
+  });else page = /*#__PURE__*/React.createElement(Dashboard, {
+    state: state,
+    navigate: navigate,
+    theme: theme
+  });
+  return /*#__PURE__*/React.createElement(ThemeContext.Provider, {
+    value: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: theme.bg
+    }
+  }, /*#__PURE__*/React.createElement(TopNav, {
+    path: path,
+    navigate: navigate,
+    theme: theme,
+    toggleTheme: toggleTheme
+  }), /*#__PURE__*/React.createElement(ConnectionBar, {
+    connected: connected,
+    error: error,
+    theme: theme
+  }), !state ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 60,
+      textAlign: "center",
+      fontFamily: theme.fontUi,
+      color: theme.textFaint,
+      fontSize: 13
+    }
+  }, "Loading…") : page));
+}
+const root = createRoot(document.getElementById("root"));
+root.render(/*#__PURE__*/React.createElement(App, null));
+</script>
+</body>
+</html>
