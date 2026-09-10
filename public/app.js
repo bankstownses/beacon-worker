@@ -791,13 +791,13 @@ function JobsRegisterScreen({
     // Immediate, and life-threatening jobs get the whole row tinted
     // with their colour, not just the Response chip.
     const isTinted = priColor !== theme.text;
-    const baseBg = isTinted ? priColor + "40" : theme.panel;
-    const hoverBg = isTinted ? priColor + "63" : theme.tableRowHover;
+    const baseBg = isTinted ? priColor + "59" : theme.panel;
+    const hoverBg = isTinted ? priColor + "80" : theme.tableRowHover;
     // The sticky Id column has real content scrolling underneath it,
     // so it needs a fully opaque background -- a translucent tint
     // would let those cells show through as they pass under it.
-    const stickyBaseBg = isTinted ? blendOverBg(priColor, 0.25, theme.panel) : theme.panel;
-    const stickyHoverBg = isTinted ? blendOverBg(priColor, 0.39, theme.panel) : theme.tableRowHover;
+    const stickyBaseBg = isTinted ? blendOverBg(priColor, 0.35, theme.panel) : theme.panel;
+    const stickyHoverBg = isTinted ? blendOverBg(priColor, 0.5, theme.panel) : theme.tableRowHover;
     return /*#__PURE__*/React.createElement("tr", {
       key: inc.id,
       onClick: () => navigate(`/Jobs/${parseInt(shortId(inc.id).replace(/[^0-9]/g, ""), 10)}`),
