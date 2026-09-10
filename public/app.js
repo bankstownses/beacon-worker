@@ -11,6 +11,8 @@ const INCIDENTS_APP_URL = "https://incidents.bankstownses.com";
 const VEHICLES = ["BKK31", "BKK32", "BKK33", "BKK36", "BKK37", "BKK44", "BKK56", "SES59", "SES43K", "BKK-FEIGE", "BKK-ALLPORT", "BKK-OFEIGE"];
 const RESCUE_TYPES = ["FR", "RCR", "GLR", "CFR", "VR", "LAR"];
 const INCIDENT_TYPES = ["Storm", "Support", "Flood Support", "Tsunami"];
+const REJECT_REASONS = ["Asset N/A", "Team N/A", "Wrong Unit", "Other"];
+const CANCEL_REASONS = ["Created in error", "Duplicate", "No longer required", "Not an SES task", "Other"];
 const FLOOD_RESCUE_CATEGORY_DESC = {
   1: "Critical assistance – person underwater / rescuer in duress",
   2: "Imminent threat to life – person in water",
@@ -2013,6 +2015,1062 @@ function PhotosSection({
     }
   }, uploading ? "Uploading…" : "+ Upload Photo"));
 }
+const HQ_ZONE_NAMES = {
+  "Bankstown": "Metro Zone"
+};
+const NOTE_TAG_GROUPS = {
+  "Contact Types": ["Ambulance", "Arborist", "BOM", "Contractor", "Council", "Crane/EWP", "Electricity", "FRNSW", "Gas", "HAZMAT", "Incident Contact", "NPWS", "Other", "Police", "Recon", "Resident", "RFS", "RMS", "SES", "Telco", "TMC", "Water"],
+  "Contact Method": ["Email", "Face-to-Face", "Fax", "ICEMS", "Phone Call", "Printed", "Radio", "SMS"],
+  "Entry Purpose": ["All Capabilities", "Backdated", "CFR", "Flood/Storm", "FR In Water", "FR On Water", "GLR", "Incoming", "Information", "Outgoing", "RCR", "Support", "Unavailability", "Update", "VR"],
+  "Action Items": ["Awaiting Update", "Call Made", "Call Needed", "Further Action Required", "Handover", "Media", "Not SES Incident", "Ready To Task", "Referral Required", "Reopened", "Retrieve Equipment", "Teams", "Complete", "Untasked", "Welfare Check"]
+};
+const ACTION_ITEM_TAGS = new Set(NOTE_TAG_GROUPS["Action Items"]);
+function tagColor(tag) {
+  return ACTION_ITEM_TAGS.has(tag) ? "#ee0039" : "#837947";
+}
+function timeSince(fromIso, toIso) {
+  if (!fromIso || !toIso) return "";
+  const ms = new Date(toIso) - new Date(fromIso);
+  if (ms < 0 || isNaN(ms)) return "";
+  const mins = Math.floor(ms / 60000);
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor(mins % 1440 / 60);
+  const remMins = mins % 60;
+  return `T+${days > 0 ? days + "d " : ""}${String(hours).padStart(2, "0")}:${String(remMins).padStart(2, "0")}`;
+}
+
+// ---------------------------------------------------------------
+// JOB HISTORY -- past incidents at the same address, then nearby
+// (same street, close house numbers), then the wider street.
+// ---------------------------------------------------------------
+function parseAddress(addr) {
+  const s = (addr || "").trim();
+  const m = s.match(/^(\d+)\s+(.*)$/);
+  if (!m) return {
+    number: null,
+    rest: s.toLowerCase()
+  };
+  return {
+    number: parseInt(m[1], 10),
+    rest: m[2].toLowerCase()
+  };
+}
+function getJobHistory(allIncidents, current) {
+  const cur = parseAddress(current.addr);
+  const others = allIncidents.filter(i => i.id !== current.id);
+  const sameAddress = others.filter(i => (i.addr || "").trim().toLowerCase() === (current.addr || "").trim().toLowerCase());
+  const sameStreetAll = cur.number !== null ? others.filter(i => {
+    const p = parseAddress(i.addr);
+    return p.rest === cur.rest && p.number !== cur.number;
+  }) : [];
+  const neighbours = sameStreetAll.filter(i => {
+    const p = parseAddress(i.addr);
+    return p.number !== null && Math.abs(p.number - cur.number) <= 4;
+  });
+  const neighbourIds = new Set(neighbours.map(i => i.id));
+  const sameStreet = sameStreetAll.filter(i => !neighbourIds.has(i.id));
+  return {
+    sameAddress,
+    neighbours,
+    sameStreet
+  };
+}
+function JobHistoryList({
+  items,
+  theme,
+  navigate
+}) {
+  if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.textGhost
+    }
+  }, "None found.");
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 6
+    }
+  }, items.map(i => /*#__PURE__*/React.createElement("div", {
+    key: i.id,
+    onClick: () => navigate(`/Jobs/${parseInt(shortId(i.id).replace(/[^0-9]/g, ""), 10)}`),
+    style: {
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.textMuted,
+      padding: "6px 0",
+      borderBottom: `1px solid ${theme.tableRowBorder}`
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: theme.accent,
+      fontWeight: 600
+    }
+  }, shortId(i.id)), " — ", i.type || "Incident", " — ", i.addr, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: theme.textGhost
+    }
+  }, " (", formatDT(i.taskedAt), ")"))));
+}
+function JobHistorySection({
+  state,
+  incident,
+  theme,
+  navigate
+}) {
+  const {
+    sameAddress,
+    neighbours,
+    sameStreet
+  } = getJobHistory(state.allIncidents || [], incident);
+  return /*#__PURE__*/React.createElement(DetailSection, {
+    title: "Job History",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 11,
+      fontWeight: 700,
+      color: theme.textFaint,
+      textTransform: "uppercase",
+      marginBottom: 4
+    }
+  }, "Same Address"), /*#__PURE__*/React.createElement(JobHistoryList, {
+    items: sameAddress,
+    theme: theme,
+    navigate: navigate
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 11,
+      fontWeight: 700,
+      color: theme.textFaint,
+      textTransform: "uppercase",
+      margin: "12px 0 4px"
+    }
+  }, "Immediate Neighbours"), /*#__PURE__*/React.createElement(JobHistoryList, {
+    items: neighbours,
+    theme: theme,
+    navigate: navigate
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 11,
+      fontWeight: 700,
+      color: theme.textFaint,
+      textTransform: "uppercase",
+      margin: "12px 0 4px"
+    }
+  }, "Same Street"), /*#__PURE__*/React.createElement(JobHistoryList, {
+    items: sameStreet,
+    theme: theme,
+    navigate: navigate
+  }));
+}
+
+// ---------------------------------------------------------------
+// NOTES -- display only; creation happens in AddNoteForm further
+// down the page. Notes with outstanding Action Required show a
+// Resolve button, which opens ResolveNoteModal.
+// ---------------------------------------------------------------
+function ResolveNoteModal({
+  theme,
+  onCancel,
+  onResolve
+}) {
+  const [stillRequired, setStillRequired] = useState(false);
+  const [resolutionText, setResolutionText] = useState("");
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.5)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 100,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 10,
+      padding: 20,
+      maxWidth: 420,
+      width: "100%"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "Oswald, sans-serif",
+      fontSize: 17,
+      fontWeight: 700,
+      color: theme.text,
+      marginBottom: 14
+    }
+  }, "Resolve Note"), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      color: theme.textMuted,
+      marginBottom: 14,
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: stillRequired,
+    onChange: e => setStillRequired(e.target.checked)
+  }), "Further Action Required"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.textFaint,
+      marginBottom: 6
+    }
+  }, "Resolution"), /*#__PURE__*/React.createElement("textarea", {
+    value: resolutionText,
+    onChange: e => setResolutionText(e.target.value),
+    rows: 3,
+    placeholder: "Description of resolution",
+    style: {
+      width: "100%",
+      background: theme.panelAlt,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      padding: "8px 11px",
+      color: theme.text,
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      outline: "none",
+      resize: "vertical",
+      boxSizing: "border-box",
+      marginBottom: 16
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    style: {
+      flex: 1,
+      background: "none",
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      color: theme.textMuted,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 13,
+      padding: "9px 0",
+      cursor: "pointer"
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onResolve({
+      stillRequired,
+      resolutionText
+    }),
+    style: {
+      flex: 1,
+      background: theme.accent,
+      border: "none",
+      borderRadius: 6,
+      color: theme.accentText,
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 13,
+      padding: "9px 0",
+      cursor: "pointer"
+    }
+  }, "Resolve"))));
+}
+function NotesSection({
+  incident,
+  notes,
+  theme,
+  dispatch
+}) {
+  const [resolvingId, setResolvingId] = useState(null);
+  const doResolve = async ({
+    stillRequired,
+    resolutionText
+  }) => {
+    await dispatch("RESOLVE_NOTE", {
+      incidentId: incident.id,
+      noteId: resolvingId,
+      stillActionRequired: stillRequired,
+      resolutionText
+    });
+    setResolvingId(null);
+  };
+  return /*#__PURE__*/React.createElement(DetailSection, {
+    title: "Notes",
+    theme: theme
+  }, notes.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.textGhost
+    }
+  }, "No notes yet."), notes.map(n => {
+    const created = new Date(n.time);
+    const receivedLine = `Received at ${created.toLocaleDateString()} ${created.toLocaleTimeString()} ${timeSince(incident.taskedAt, n.time)}`;
+    return /*#__PURE__*/React.createElement("div", {
+      key: n.id,
+      style: {
+        borderBottom: `1px solid ${theme.tableRowBorder}`,
+        padding: "10px 0",
+        fontFamily: theme.fontUi
+      }
+    }, n.tags && n.tags.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 5,
+        marginBottom: 5
+      }
+    }, n.tags.map(t => /*#__PURE__*/React.createElement("span", {
+      key: t,
+      style: {
+        color: tagColor(t),
+        background: tagColor(t) + "22",
+        border: `1px solid ${tagColor(t)}55`,
+        fontSize: 10.5,
+        fontWeight: 700,
+        padding: "2px 7px",
+        borderRadius: 4
+      }
+    }, t))), n.subject && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        fontSize: 13.5,
+        color: theme.text,
+        marginBottom: 2
+      }
+    }, n.subject), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        color: theme.textMuted,
+        marginBottom: 4
+      }
+    }, n.resolved ? `${n.text} - Resolved on ${new Date(n.resolvedAt).toLocaleDateString()} ${new Date(n.resolvedAt).toLocaleTimeString()} with the following text: ${n.resolutionText || ""}` : n.text), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: theme.textGhost
+      }
+    }, receivedLine), n.actionRequired && !n.resolved && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setResolvingId(n.id),
+      style: {
+        marginTop: 6,
+        background: "none",
+        border: `1px solid ${theme.accent}`,
+        color: theme.accent,
+        borderRadius: 5,
+        fontSize: 11.5,
+        fontWeight: 700,
+        padding: "4px 10px",
+        cursor: "pointer",
+        fontFamily: theme.fontUi
+      }
+    }, "Resolve"));
+  }), resolvingId && /*#__PURE__*/React.createElement(ResolveNoteModal, {
+    theme: theme,
+    onCancel: () => setResolvingId(null),
+    onResolve: doResolve
+  }));
+}
+
+// ---------------------------------------------------------------
+// ACTIONS
+// ---------------------------------------------------------------
+function ActionsSection({
+  incident,
+  notes,
+  theme,
+  dispatch
+}) {
+  const [open, setOpen] = useState(null);
+  const [reason, setReason] = useState(null);
+  const [note, setNote] = useState("");
+  const [vehiclesSel, setVehiclesSel] = useState(new Set());
+  const [busy, setBusy] = useState(false);
+  const hasUnresolved = (notes || []).some(n => n.actionRequired && !n.resolved);
+  const btnStyle = {
+    background: "none",
+    border: `1px solid ${theme.border}`,
+    borderRadius: 6,
+    color: theme.textMuted,
+    fontFamily: theme.fontUi,
+    fontWeight: 600,
+    fontSize: 12.5,
+    padding: "8px 14px",
+    cursor: "pointer"
+  };
+  const reset = () => {
+    setOpen(null);
+    setReason(null);
+    setNote("");
+    setVehiclesSel(new Set());
+  };
+  const doRecce = async () => {
+    setBusy(true);
+    try {
+      await dispatch("RECCE_INCIDENT", {
+        incidentId: incident.id
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const doReject = async () => {
+    if (!reason) return;
+    setBusy(true);
+    try {
+      await dispatch("REJECT_INCIDENT", {
+        incidentId: incident.id,
+        reason,
+        note
+      });
+      reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const doCancel = async () => {
+    if (!reason) return;
+    setBusy(true);
+    try {
+      await dispatch("CANCEL_INCIDENT", {
+        incidentId: incident.id,
+        reason,
+        note
+      });
+      reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const doComplete = async () => {
+    setBusy(true);
+    try {
+      await dispatch("COMPLETE_INCIDENT", {
+        incidentId: incident.id,
+        note
+      });
+      reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const doFinalise = async () => {
+    setBusy(true);
+    try {
+      await dispatch("FINALISE_INCIDENT", {
+        incidentId: incident.id,
+        note
+      });
+      reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const doTask = async () => {
+    if (vehiclesSel.size === 0) return;
+    setBusy(true);
+    try {
+      for (const v of vehiclesSel) await dispatch("NOTIFY_VEHICLE", {
+        vehicle: v,
+        incidentId: incident.id
+      });
+      reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const toggleVehicle = v => setVehiclesSel(prev => {
+    const n = new Set(prev);
+    n.has(v) ? n.delete(v) : n.add(v);
+    return n;
+  });
+  return /*#__PURE__*/React.createElement(DetailSection, {
+    title: "Actions",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    style: btnStyle,
+    onClick: () => setOpen(open === "reject" ? null : "reject")
+  }, "Reject"), /*#__PURE__*/React.createElement("button", {
+    style: {
+      ...btnStyle,
+      opacity: incident.reconnoitered ? 0.5 : 1,
+      cursor: incident.reconnoitered ? "default" : "pointer"
+    },
+    disabled: incident.reconnoitered || busy,
+    onClick: doRecce
+  }, incident.reconnoitered ? "Recce'd ✓" : "Recce'd"), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle,
+    onClick: () => setOpen(open === "task" ? null : "task")
+  }, "Task"), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle,
+    onClick: () => setOpen(open === "complete" ? null : "complete")
+  }, "Complete"), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle,
+    onClick: () => setOpen(open === "cancel" ? null : "cancel")
+  }, "Cancel"), !hasUnresolved && /*#__PURE__*/React.createElement("button", {
+    style: btnStyle,
+    onClick: () => setOpen(open === "finalise" ? null : "finalise")
+  }, "Finalise")), open === "reject" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panelAlt,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement(PillSelect, {
+    options: REJECT_REASONS,
+    value: reason,
+    onChange: setReason,
+    theme: theme
+  }), reason === "Other" && /*#__PURE__*/React.createElement("textarea", {
+    value: note,
+    onChange: e => setNote(e.target.value),
+    rows: 2,
+    placeholder: "Reason",
+    style: {
+      width: "100%",
+      marginTop: 8,
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      padding: 8,
+      color: theme.text,
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      boxSizing: "border-box"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: doReject,
+    disabled: !reason || busy,
+    style: {
+      marginTop: 8,
+      background: theme.accent,
+      color: theme.accentText,
+      border: "none",
+      borderRadius: 6,
+      padding: "8px 16px",
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 12.5,
+      cursor: "pointer"
+    }
+  }, "Confirm Reject")), open === "cancel" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panelAlt,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement(PillSelect, {
+    options: CANCEL_REASONS,
+    value: reason,
+    onChange: setReason,
+    theme: theme
+  }), reason === "Other" && /*#__PURE__*/React.createElement("textarea", {
+    value: note,
+    onChange: e => setNote(e.target.value),
+    rows: 2,
+    placeholder: "Reason",
+    style: {
+      width: "100%",
+      marginTop: 8,
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      padding: 8,
+      color: theme.text,
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      boxSizing: "border-box"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: doCancel,
+    disabled: !reason || busy,
+    style: {
+      marginTop: 8,
+      background: theme.accent,
+      color: theme.accentText,
+      border: "none",
+      borderRadius: 6,
+      padding: "8px 16px",
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 12.5,
+      cursor: "pointer"
+    }
+  }, "Confirm Cancel")), open === "complete" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panelAlt,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: note,
+    onChange: e => setNote(e.target.value),
+    rows: 2,
+    placeholder: "Completion note (optional)",
+    style: {
+      width: "100%",
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      padding: 8,
+      color: theme.text,
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      boxSizing: "border-box"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: doComplete,
+    disabled: busy,
+    style: {
+      marginTop: 8,
+      background: theme.accent,
+      color: theme.accentText,
+      border: "none",
+      borderRadius: 6,
+      padding: "8px 16px",
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 12.5,
+      cursor: "pointer"
+    }
+  }, "Confirm Complete")), open === "finalise" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panelAlt,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: note,
+    onChange: e => setNote(e.target.value),
+    rows: 2,
+    placeholder: "Finalisation note (optional)",
+    style: {
+      width: "100%",
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      padding: 8,
+      color: theme.text,
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      boxSizing: "border-box"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: doFinalise,
+    disabled: busy,
+    style: {
+      marginTop: 8,
+      background: theme.accent,
+      color: theme.accentText,
+      border: "none",
+      borderRadius: 6,
+      padding: "8px 16px",
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 12.5,
+      cursor: "pointer"
+    }
+  }, "Confirm Finalise")), open === "task" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panelAlt,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap",
+      marginBottom: 8
+    }
+  }, VEHICLES.map(v => /*#__PURE__*/React.createElement("button", {
+    key: v,
+    onClick: () => toggleVehicle(v),
+    style: {
+      padding: "6px 11px",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: theme.fontMono,
+      fontWeight: 600,
+      fontSize: 11.5,
+      background: vehiclesSel.has(v) ? theme.accent : theme.panel,
+      color: vehiclesSel.has(v) ? theme.accentText : theme.textMuted,
+      border: `1px solid ${vehiclesSel.has(v) ? theme.accent : theme.border}`
+    }
+  }, v))), /*#__PURE__*/React.createElement("button", {
+    onClick: doTask,
+    disabled: vehiclesSel.size === 0 || busy,
+    style: {
+      background: theme.accent,
+      color: theme.accentText,
+      border: "none",
+      borderRadius: 6,
+      padding: "8px 16px",
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 12.5,
+      cursor: "pointer"
+    }
+  }, "Confirm Task")));
+}
+
+// ---------------------------------------------------------------
+// TEAMS
+// ---------------------------------------------------------------
+function TeamsSection({
+  state,
+  incident,
+  theme
+}) {
+  const active = [];
+  VEHICLES.forEach(v => {
+    const vs = state.vehicleStates?.[v];
+    if (!vs) return;
+    const inQueue = (vs.queue || []).some(j => j.id === incident.id) || (vs.incomingQueue || []).some(j => j.id === incident.id);
+    if (inQueue) {
+      const phase = vs.progress?.[incident.id]?.phase || "Tasked";
+      active.push({
+        vehicle: v,
+        status: phase,
+        teamStatus: vs.teamStatus?.label
+      });
+    }
+  });
+  const completed = (state.completedJobs || []).filter(c => c.job?.id === incident.id);
+  const calledOff = (state.calledOffJobs || []).filter(c => c.job?.id === incident.id);
+  const rowStyle = {
+    fontFamily: theme.fontUi,
+    fontSize: 13,
+    color: theme.text,
+    padding: "6px 0",
+    borderBottom: `1px solid ${theme.tableRowBorder}`
+  };
+  return /*#__PURE__*/React.createElement(DetailSection, {
+    title: "Teams",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 11,
+      fontWeight: 700,
+      color: theme.textFaint,
+      textTransform: "uppercase",
+      marginBottom: 4
+    }
+  }, "Active Teams"), active.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.textGhost,
+      marginBottom: 10
+    }
+  }, "None.") : active.map(a => /*#__PURE__*/React.createElement("div", {
+    key: a.vehicle,
+    style: rowStyle
+  }, /*#__PURE__*/React.createElement("strong", null, a.vehicle), " — ", a.status, a.teamStatus ? ` (${a.teamStatus})` : "")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 11,
+      fontWeight: 700,
+      color: theme.textFaint,
+      textTransform: "uppercase",
+      margin: "12px 0 4px"
+    }
+  }, "Completed Teams"), completed.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.textGhost,
+      marginBottom: 10
+    }
+  }, "None.") : completed.map((c, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: rowStyle
+  }, /*#__PURE__*/React.createElement("strong", null, c.vehicle), c.formData?.note ? ` — ${c.formData.note}` : "")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 11,
+      fontWeight: 700,
+      color: theme.textFaint,
+      textTransform: "uppercase",
+      margin: "12px 0 4px"
+    }
+  }, "Called Off Teams"), calledOff.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.textGhost
+    }
+  }, "None.") : calledOff.map((c, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: rowStyle
+  }, /*#__PURE__*/React.createElement("strong", null, c.vehicle), c.reason ? ` — ${c.reason}` : "")));
+}
+
+// ---------------------------------------------------------------
+// PROVIDERS & MAP -- placeholders, both intentionally disabled.
+// ---------------------------------------------------------------
+function ProvidersSection({
+  theme
+}) {
+  return /*#__PURE__*/React.createElement(DetailSection, {
+    title: "Providers",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => alert("This feature has been disabled."),
+    style: {
+      background: "none",
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      color: theme.textMuted,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 12.5,
+      padding: "8px 14px",
+      cursor: "pointer"
+    }
+  }, "Attach Provider"));
+}
+function MapSection({
+  theme
+}) {
+  return /*#__PURE__*/React.createElement(DetailSection, {
+    title: "Map",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    disabled: true,
+    style: {
+      background: "none",
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      color: theme.textGhost,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 12.5,
+      padding: "8px 14px",
+      cursor: "not-allowed",
+      opacity: 0.5
+    }
+  }, "On"), /*#__PURE__*/React.createElement("button", {
+    disabled: true,
+    style: {
+      background: "none",
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      color: theme.textGhost,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 12.5,
+      padding: "8px 14px",
+      cursor: "not-allowed",
+      opacity: 0.5
+    }
+  }, "Off")));
+}
+
+// ---------------------------------------------------------------
+// ADD A NEW NOTE
+// ---------------------------------------------------------------
+function AddNoteForm({
+  incident,
+  theme,
+  dispatch
+}) {
+  const [tab, setTab] = useState(Object.keys(NOTE_TAG_GROUPS)[0]);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [subject, setSubject] = useState("");
+  const [text, setText] = useState("");
+  const [actionRequired, setActionRequired] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const hasActionTag = selectedTags.some(t => ACTION_ITEM_TAGS.has(t));
+  const toggleTag = t => setSelectedTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+  const save = async () => {
+    if (!text.trim()) return;
+    setSaving(true);
+    try {
+      await dispatch("ADD_NOTE", {
+        incidentId: incident.id,
+        tags: selectedTags,
+        subject: subject.trim() || null,
+        text: text.trim(),
+        actionRequired: hasActionTag ? actionRequired : false
+      });
+      setSelectedTags([]);
+      setSubject("");
+      setText("");
+      setActionRequired(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement(DetailSection, {
+    title: "Add A New Note",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tag-picker-tabs",
+    style: {
+      marginBottom: 10
+    }
+  }, Object.keys(NOTE_TAG_GROUPS).map(g => /*#__PURE__*/React.createElement("button", {
+    key: g,
+    onClick: () => setTab(g),
+    style: {
+      padding: "6px 12px",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 12,
+      background: tab === g ? theme.accent : "none",
+      color: tab === g ? theme.accentText : theme.textMuted,
+      border: `1px solid ${tab === g ? theme.accent : theme.border}`
+    }
+  }, g))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6,
+      marginBottom: 14
+    }
+  }, NOTE_TAG_GROUPS[tab].filter(t => !selectedTags.includes(t)).map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => toggleTag(t),
+    style: {
+      padding: "5px 10px",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontSize: 12,
+      background: theme.panelAlt,
+      color: tagColor(t),
+      border: `1px solid ${tagColor(t)}55`
+    }
+  }, t))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 11,
+      fontWeight: 700,
+      color: theme.textFaint,
+      textTransform: "uppercase",
+      marginBottom: 6
+    }
+  }, "Selected Tags"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6,
+      marginBottom: 14,
+      minHeight: 20
+    }
+  }, selectedTags.length === 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12,
+      color: theme.textGhost
+    }
+  }, "None selected."), selectedTags.map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    onClick: () => toggleTag(t),
+    style: {
+      padding: "5px 10px",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontSize: 12,
+      fontWeight: 600,
+      color: "#fff",
+      background: tagColor(t)
+    }
+  }, t, " ×"))), hasActionTag && /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      color: theme.textMuted,
+      marginBottom: 14,
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: actionRequired,
+    onChange: e => setActionRequired(e.target.checked)
+  }), "Action Required"), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Subject",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: subject,
+    onChange: e => setSubject(e.target.value),
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Text",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: text,
+    onChange: e => setText(e.target.value),
+    rows: 3,
+    style: {
+      ...inputStyle(theme),
+      resize: "vertical"
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: save,
+    disabled: !text.trim() || saving,
+    style: {
+      marginTop: 8,
+      background: text.trim() ? theme.accent : theme.panelAlt,
+      color: text.trim() ? theme.accentText : theme.textGhost,
+      border: "none",
+      borderRadius: 6,
+      padding: "10px 18px",
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: text.trim() ? "pointer" : "not-allowed"
+    }
+  }, saving ? "Saving…" : "Save Note"));
+}
+
+// ---------------------------------------------------------------
+// MAIN SCREEN
+// ---------------------------------------------------------------
 function IncidentDetailScreen({
   state,
   theme,
@@ -2024,7 +3082,6 @@ function IncidentDetailScreen({
     const digits = shortId(inc.id).replace(/[^0-9]/g, "");
     return String(parseInt(digits, 10)) === slug;
   });
-  const priorityColors = theme.name === "dark" ? PRIORITY_COLORS_DARK : PRIORITY_COLORS_LIGHT;
   const statusColors = theme.name === "dark" ? STATUS_COLORS_DARK : STATUS_COLORS_LIGHT;
   if (!state) {
     return /*#__PURE__*/React.createElement("div", {
@@ -2059,9 +3116,11 @@ function IncidentDetailScreen({
     }, "← Back to Incident Register"));
   }
   const timeline = state.incidentTimelines?.[incident.id] || [];
+  const notes = state.incidentNotes?.[incident.id] || [];
   const tags = Array.isArray(incident.tags) ? incident.tags : [];
   const priColor = priorityDisplayColor(incident, theme);
   const statColor = statusColors[incident.status] || theme.textFaint;
+  const hqZone = HQ_ZONE_NAMES[incident.assignedHQ];
   return /*#__PURE__*/React.createElement("div", {
     className: "page-wrap-full"
   }, /*#__PURE__*/React.createElement(Link, {
@@ -2138,6 +3197,10 @@ function IncidentDetailScreen({
     value: incident.priority,
     theme: theme
   }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Recce'd",
+    value: incident.reconnoitered ? "Yes" : "No",
+    theme: theme
+  }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Referring Agency",
     value: incident.referringAgency ? incident.referringAgency + (incident.agencyRef ? ` (ref: ${incident.agencyRef})` : "") : null,
     theme: theme
@@ -2158,7 +3221,7 @@ function IncidentDetailScreen({
     theme: theme
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "HQ",
-    value: incident.assignedHQ,
+    value: incident.assignedHQ ? `${incident.assignedHQ}${hqZone ? ` (${hqZone})` : ""}` : null,
     theme: theme
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Permission to Enter",
@@ -2198,7 +3261,34 @@ function IncidentDetailScreen({
     label: "Number",
     value: incident.contactNumber,
     theme: theme
-  })), /*#__PURE__*/React.createElement(PhotosSection, {
+  })), /*#__PURE__*/React.createElement(JobHistorySection, {
+    state: state,
+    incident: incident,
+    theme: theme,
+    navigate: navigate
+  }), /*#__PURE__*/React.createElement(NotesSection, {
+    incident: incident,
+    notes: notes,
+    theme: theme,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(ActionsSection, {
+    incident: incident,
+    notes: notes,
+    theme: theme,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(TeamsSection, {
+    state: state,
+    incident: incident,
+    theme: theme
+  }), /*#__PURE__*/React.createElement(PhotosSection, {
+    incident: incident,
+    theme: theme,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(ProvidersSection, {
+    theme: theme
+  }), /*#__PURE__*/React.createElement(MapSection, {
+    theme: theme
+  }), /*#__PURE__*/React.createElement(AddNoteForm, {
     incident: incident,
     theme: theme,
     dispatch: dispatch
@@ -2209,7 +3299,7 @@ function IncidentDetailScreen({
   }, timeline.length > 0 && /*#__PURE__*/React.createElement(DetailSection, {
     title: "Time Line",
     theme: theme
-  }, timeline.slice(0, 20).map((e, i) => /*#__PURE__*/React.createElement("div", {
+  }, timeline.slice(0, 40).map((e, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     style: {
       borderBottom: `1px solid ${theme.tableRowBorder}`,
@@ -2229,7 +3319,7 @@ function IncidentDetailScreen({
       fontSize: 11,
       marginTop: 2
     }
-  }, e.time ? formatDT(e.time) : "")))))));
+  }, e.time ? formatDT(e.time) : "", " ", timeSince(incident.taskedAt, e.time))))))));
 }
 function App() {
   const {
