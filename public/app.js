@@ -5,6 +5,7 @@ import { ClipboardList, Plus, Send, Sun, Moon, RefreshCw, Wifi, WifiOff } from "
 // ---------------------------------------------------------------
 // This talks to the same live backend as the rest of the BKK apps,
 // so it shows real, current data immediately -- no separate setup.
+// okay
 // ---------------------------------------------------------------
 const SERVER_URL = "https://api.bankstownses.com";
 const INCIDENTS_APP_URL = "https://incidents.bankstownses.com";
