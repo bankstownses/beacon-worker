@@ -15,6 +15,10 @@ html, body { margin: 0; padding: 0; overflow-x: hidden; width: 100%; }
   @media (min-width: 600px) { .page-wrap { padding: 18px 20px; } }
   @media (min-width: 1200px) { .page-wrap { max-width: 1320px; padding: 24px 32px; } }
 
+  .page-wrap-full { width: 100%; padding: 14px 12px; }
+  @media (min-width: 600px) { .page-wrap-full { padding: 18px 20px; } }
+  @media (min-width: 1200px) { .page-wrap-full { padding: 24px 32px; } }
+
   /* Top nav */
   .top-nav-inner {
     max-width: 1100px; margin: 0 auto; padding: 0 12px;

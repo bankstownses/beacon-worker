@@ -5,7 +5,6 @@ import { ClipboardList, Plus, Send, Sun, Moon, RefreshCw, Wifi, WifiOff } from "
 // ---------------------------------------------------------------
 // This talks to the same live backend as the rest of the BKK apps,
 // so it shows real, current data immediately -- no separate setup.
-// okay
 // ---------------------------------------------------------------
 const SERVER_URL = "https://api.bankstownses.com";
 const INCIDENTS_APP_URL = "https://incidents.bankstownses.com";
@@ -2039,7 +2038,7 @@ function IncidentDetailScreen({
   }
   if (!incident) {
     return /*#__PURE__*/React.createElement("div", {
-      className: "page-wrap",
+      className: "page-wrap-full",
       style: {
         textAlign: "center"
       }
@@ -2064,7 +2063,7 @@ function IncidentDetailScreen({
   const priColor = priorityDisplayColor(incident, theme);
   const statColor = statusColors[incident.status] || theme.textFaint;
   return /*#__PURE__*/React.createElement("div", {
-    className: "page-wrap"
+    className: "page-wrap-full"
   }, /*#__PURE__*/React.createElement(Link, {
     to: "/Jobs",
     navigate: navigate,
