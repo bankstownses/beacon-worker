@@ -29,8 +29,71 @@ import { ClipboardList, Plus, Send, Sun, Moon, RefreshCw, Wifi, WifiOff } from "
 // ---------------------------------------------------------------
 const SERVER_URL = "https://api.bankstownses.com";
 const INCIDENTS_APP_URL = "https://incidents.bankstownses.com";
-function shortId(id) {
-  return (id || "").replace(/^Incident /, "");
+const VEHICLES = ["BKK31", "BKK32", "BKK33", "BKK36", "BKK37", "BKK44", "BKK56", "SES59", "SES43K", "BKK-FEIGE", "BKK-ALLPORT", "BKK-OFEIGE"];
+const RESCUE_TYPES = ["FR", "RCR", "GLR", "CFR", "VR", "LAR"];
+const INCIDENT_TYPES = ["Storm", "Support", "Tsunami"];
+const FLOOD_RESCUE_CATEGORY_DESC = {
+  1: "Critical assistance – person underwater / rescuer in duress",
+  2: "Imminent threat to life – person in water",
+  3: "Person trapped – water rising",
+  4: "Person trapped – water level and platform stable",
+  5: "Domestic animal rescue"
+};
+const SUBURBS = ["Bankstown", "Chullora", "Greenacre", "Punchbowl", "Bass Hill", "Chester Hill", "Condell Park", "Georges Hall", "Revesby", "Padstow"];
+const RANDOM_FIRST_NAMES = ["Jamie", "Alex", "Sam", "Chris", "Jordan", "Taylor", "Sarah", "Michael", "Emma", "Daniel"];
+const RANDOM_LAST_NAMES = ["Smith", "Jones", "Brown", "Nguyen", "Wilson", "Taylor", "Lee", "Chen", "Patel", "Cooper"];
+const RANDOM_STREET_NAMES = ["Park", "High", "Main", "Church", "King", "Queen", "George", "William", "Victoria", "Station"];
+const RANDOM_STREET_TYPES = ["Street", "Road", "Avenue", "Place", "Crescent", "Drive"];
+const RANDOM_AGENCIES = ["NSWPF", "FRNSW", "Ambulance NSW", "Council", "Neighbour", "Resident", "WIRES"];
+const RANDOM_NOTES = ["Called back to confirm details", "Resident advised to stay clear of area", "Awaiting further update from caller", "Photos taken on arrival", "Spoke to neighbour on scene"];
+const GENERAL_INCIDENT_TEMPLATES = [{
+  situationOnScene: "ROOF LEAKING. WATER INCOMING TO LOUNGEROOM.",
+  tags: ["Ceiling Damage", "Leaking Roof", "Roof Damage", "Tiled Roof"],
+  priority: "General"
+}, {
+  situationOnScene: "LARGE BRANCH DOWN ON ROOF, ROOF DAMAGE",
+  tags: ["Branch Down", "1 Storey", "Owner", "Residential"],
+  priority: "General"
+}, {
+  situationOnScene: "TREE DOWN OVER CAR AND HAS TAKEN DOWN POWERLINES",
+  tags: ["Tree Down", "Power Lines Down", "Car/Vehicle", "Road"],
+  priority: "General"
+}, {
+  situationOnScene: "TREE BRANCH DOWN NATURE STRIP. BLOCKING HALF THE LANE.",
+  tags: ["Branch Down", "Council Land", "Road"],
+  priority: "Priority"
+}, {
+  situationOnScene: "CARPORT COLLAPSED DUE TO WIND - BLOCKING ACCESS TO THE REAR OF THE HOME",
+  tags: ["Other", "Driveway", "Owner", "Yard"],
+  priority: "General"
+}, {
+  situationOnScene: "HOUSE FLOODING - WATER COMING FROM ROOF AND COMING FROM ROOF OF FRONT DOOR",
+  tags: ["Flood Threatening", "Leaking Roof", "1 Storey"],
+  priority: "General"
+}];
+const RESCUE_TEMPLATES = [{
+  rescueType: "FR",
+  floodRescueCategory: "3",
+  situationOnScene: "INFORMANT VEHICLE IN FLOOD WATER - CAN SEE EMERGENCY SERVICES"
+}, {
+  rescueType: "GLR",
+  situationOnScene: "PERSON REPORTED STUCK IN DIFFICULT TERRAIN, UNABLE TO SELF-EXTRICATE"
+}, {
+  rescueType: "RCR",
+  situationOnScene: "MVA - PERSON TRAPPED IN VEHICLE, REQUIRES EXTRICATION"
+}];
+const SUPPORT_TEMPLATES = [{
+  requestingAgency: "NSWPF",
+  situationOnScene: "LIGHTING AT CRIME SCENE - APPROX 10 LIGHTS REQUIRED"
+}, {
+  requestingAgency: "NSWPF",
+  situationOnScene: "TREE DOWN ONTO FENCE AFTER MVA - NPT"
+}];
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+function randomBool(chance = 0.5) {
+  return Math.random() < chance;
 }
 function formatDT(iso) {
   if (!iso) return "—";
@@ -677,6 +740,793 @@ function JobsRegisterScreen({
     }, inc.addr || "—"));
   })))));
 }
+
+// ---------------------------------------------------------------
+// CREATE NEW INCIDENT (/Jobs/Create)
+// ---------------------------------------------------------------
+function FieldSet({
+  title,
+  theme,
+  children
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 22
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12,
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      color: theme.accent,
+      borderBottom: `1px solid ${theme.border}`,
+      paddingBottom: 6,
+      marginBottom: 14
+    }
+  }, title), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12
+    }
+  }, children));
+}
+function FormRow({
+  label,
+  children,
+  theme,
+  required
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "200px 1fr",
+      gap: 14,
+      alignItems: "start"
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      color: theme.textMuted,
+      paddingTop: 8
+    }
+  }, label, required && /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#D9463D"
+    }
+  }, " *")), /*#__PURE__*/React.createElement("div", null, children));
+}
+function inputStyle(theme) {
+  return {
+    width: "100%",
+    background: theme.panelAlt,
+    border: `1px solid ${theme.border}`,
+    borderRadius: 6,
+    padding: "8px 11px",
+    color: theme.text,
+    fontFamily: theme.fontUi,
+    fontSize: 13.5,
+    outline: "none",
+    boxSizing: "border-box"
+  };
+}
+function YesNo({
+  value,
+  onChange,
+  theme,
+  labels = ["Yes", "No"]
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, labels.map(l => /*#__PURE__*/React.createElement("button", {
+    key: l,
+    onClick: () => onChange(l),
+    style: {
+      flex: 1,
+      padding: "8px 0",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 13,
+      background: value === l ? theme.accent : theme.panelAlt,
+      color: value === l ? theme.accentText : theme.textMuted,
+      border: `1px solid ${value === l ? theme.accent : theme.border}`
+    }
+  }, l)));
+}
+function PillSelect({
+  options,
+  value,
+  onChange,
+  theme
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap"
+    }
+  }, options.map(o => /*#__PURE__*/React.createElement("button", {
+    key: o,
+    onClick: () => onChange(o),
+    style: {
+      padding: "7px 14px",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 12.5,
+      background: value === o ? theme.accent : theme.panelAlt,
+      color: value === o ? theme.accentText : theme.textMuted,
+      border: `1px solid ${value === o ? theme.accent : theme.border}`
+    }
+  }, o)));
+}
+function CreateIncidentScreen({
+  dispatch,
+  theme,
+  navigate
+}) {
+  const [lifeThreatening, setLifeThreatening] = useState(null);
+  const [rescueType, setRescueType] = useState(null);
+  const [floodRescueCategory, setFloodRescueCategory] = useState(null);
+  const [referringFrom, setReferringFrom] = useState("");
+  const [referringRef, setReferringRef] = useState("");
+  const [situationOnScene, setSituationOnScene] = useState("");
+  const [incidentType, setIncidentType] = useState(null);
+  const [callersNumber, setCallersNumber] = useState("");
+  const [callersName, setCallersName] = useState("");
+  const [incidentContactCalling, setIncidentContactCalling] = useState("Yes");
+  const [contactNumber, setContactNumber] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [addr, setAddr] = useState("");
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeStatus, setGeocodeStatus] = useState(null);
+  const [extraInfo, setExtraInfo] = useState("");
+  const [permissionToEnter, setPermissionToEnter] = useState(null);
+  const [howToEnter, setHowToEnter] = useState("");
+  const [lat, setLat] = useState("");
+  const [long, setLong] = useState("");
+  const [assignedHQ, setAssignedHQ] = useState("Bankstown");
+  const [requestingAgency, setRequestingAgency] = useState("");
+  const [requestingAgencyRef, setRequestingAgencyRef] = useState("");
+  const [tags, setTags] = useState(new Set());
+  const [tagInput, setTagInput] = useState("");
+  const [responseType, setResponseType] = useState(null);
+  const [selectedVehicles, setSelectedVehicles] = useState(new Set());
+  const [noteText, setNoteText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [result, setResult] = useState(null);
+  useEffect(() => {
+    if (lifeThreatening === "Yes") setResponseType("Immediate");
+  }, [lifeThreatening]);
+  useEffect(() => {
+    const q = addr.trim();
+    if (q.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=8&countrycodes=au&q=${encodeURIComponent(q + ", NSW, Australia")}`);
+        const data = await res.json();
+        if (cancelled) return;
+        const sorted = [...data].sort((a, b) => (b.importance || 0) - (a.importance || 0)).slice(0, 5);
+        setAddressSuggestions(sorted.map(d => ({
+          label: d.display_name,
+          lat: d.lat,
+          lon: d.lon
+        })));
+        setShowSuggestions(sorted.length > 0);
+      } catch {
+        if (!cancelled) setAddressSuggestions([]);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [addr]);
+  const selectAddressSuggestion = s => {
+    setAddr(s.label);
+    setLat(parseFloat(s.lat).toFixed(6));
+    setLong(parseFloat(s.lon).toFixed(6));
+    setGeocodeStatus("success");
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+  };
+  const autoFill = () => {
+    const suburb = pick(SUBURBS);
+    const streetNum = Math.floor(Math.random() * 200) + 1;
+    const fullAddr = `${streetNum} ${pick(RANDOM_STREET_NAMES)} ${pick(RANDOM_STREET_TYPES)}, ${suburb}, NSW`;
+    setAddr(fullAddr);
+    setExtraInfo("");
+    setLat("");
+    setLong("");
+    setGeocodeStatus(null);
+    setAssignedHQ("Bankstown");
+    setGeocoding(true);
+    (async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=au&q=${encodeURIComponent(suburb + ", NSW, Australia")}`);
+        const data = await res.json();
+        if (data[0]) {
+          setLat(parseFloat(data[0].lat).toFixed(6));
+          setLong(parseFloat(data[0].lon).toFixed(6));
+          setGeocodeStatus("success");
+        }
+      } catch {
+        setGeocodeStatus("error");
+      } finally {
+        setGeocoding(false);
+      }
+    })();
+    const r = Math.random();
+    const kind = r < 0.15 ? "rescue" : r < 0.30 ? "support" : "general";
+    setLifeThreatening(kind === "rescue" ? "Yes" : "No");
+    if (kind === "rescue") {
+      const t = pick(RESCUE_TEMPLATES);
+      setRescueType(t.rescueType);
+      setFloodRescueCategory(t.floodRescueCategory || null);
+      setReferringFrom("");
+      setReferringRef("");
+      setSituationOnScene(t.situationOnScene);
+      setIncidentType(null);
+      setRequestingAgency("");
+      setRequestingAgencyRef("");
+      setTags(new Set());
+      setResponseType("Immediate");
+    } else if (kind === "support") {
+      const t = pick(SUPPORT_TEMPLATES);
+      setRescueType(null);
+      setFloodRescueCategory(null);
+      setReferringFrom("");
+      setReferringRef("");
+      setSituationOnScene(t.situationOnScene);
+      setIncidentType("Support");
+      setRequestingAgency(t.requestingAgency);
+      setRequestingAgencyRef(`REF-${Math.floor(Math.random() * 90000) + 10000}`);
+      setTags(new Set());
+      setResponseType(pick(["Immediate", "Priority"]));
+    } else {
+      const t = pick(GENERAL_INCIDENT_TEMPLATES);
+      setRescueType(null);
+      setFloodRescueCategory(null);
+      setReferringFrom("");
+      setReferringRef("");
+      setSituationOnScene(t.situationOnScene);
+      setIncidentType("Storm");
+      setRequestingAgency("");
+      setRequestingAgencyRef("");
+      setTags(new Set(t.tags));
+      setResponseType(t.priority);
+    }
+    setCallersName(`${pick(RANDOM_FIRST_NAMES)} ${pick(RANDOM_LAST_NAMES)}`);
+    setCallersNumber(`04${Math.floor(Math.random() * 90000000) + 10000000}`);
+    const calling = randomBool(0.8) ? "Yes" : "No";
+    setIncidentContactCalling(calling);
+    if (calling === "No") {
+      setContactName(`${pick(RANDOM_FIRST_NAMES)} ${pick(RANDOM_LAST_NAMES)}`);
+      setContactNumber(`04${Math.floor(Math.random() * 90000000) + 10000000}`);
+    } else {
+      setContactName("");
+      setContactNumber("");
+    }
+    const permission = randomBool(0.5) ? "Yes" : "No";
+    setPermissionToEnter(permission);
+    setHowToEnter(permission === "Yes" && randomBool(0.5) ? "Key under mat" : "");
+    setSelectedVehicles(randomBool(0.3) ? new Set([pick(VEHICLES)]) : new Set());
+    setNoteText(randomBool(0.4) ? pick(RANDOM_NOTES) : "");
+    setResult(null);
+  };
+  const addTagFromInput = () => {
+    const t = tagInput.trim();
+    if (!t) return;
+    setTags(prev => new Set(prev).add(t));
+    setTagInput("");
+  };
+  const removeTag = t => setTags(prev => {
+    const n = new Set(prev);
+    n.delete(t);
+    return n;
+  });
+  const toggleVehicle = v => setSelectedVehicles(prev => {
+    const n = new Set(prev);
+    n.has(v) ? n.delete(v) : n.add(v);
+    return n;
+  });
+  const requiredOk = lifeThreatening && (lifeThreatening === "Yes" ? !!rescueType : !!incidentType) && callersNumber.trim() && callersName.trim() && addr.trim() && assignedHQ.trim() && responseType && tags.size > 0;
+  const derivedType = lifeThreatening === "Yes" ? floodRescueCategory ? `${rescueType} ${floodRescueCategory}` : rescueType : incidentType || "Incident";
+  const submit = async () => {
+    if (!requiredOk || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    setResult(null);
+    try {
+      const res = await dispatch("CREATE_INCIDENT", {
+        fields: {
+          type: situationOnScene.trim() || derivedType,
+          priority: responseType,
+          addr: addr.trim(),
+          additionalAddressInfo: extraInfo.trim() || null,
+          permissionToEnter,
+          howToEnter: permissionToEnter === "Yes" ? howToEnter.trim() || null : null,
+          assignedHQ: assignedHQ.trim(),
+          lat: lat.trim() || null,
+          long: long.trim() || null,
+          callersName: callersName.trim(),
+          callersNumber: callersNumber.trim(),
+          incidentContactCalling,
+          contactNumber: incidentContactCalling === "No" ? contactNumber.trim() || null : null,
+          contactName: incidentContactCalling === "No" ? contactName.trim() || null : null,
+          situationOnScene: situationOnScene.trim() || null,
+          lifeThreatening,
+          rescueType: lifeThreatening === "Yes" ? rescueType : null,
+          floodRescueCategory: rescueType === "FR" ? floodRescueCategory : null,
+          referringAgency: referringFrom.trim() || null,
+          agencyRef: referringRef.trim() || null,
+          incidentTypeCategory: lifeThreatening === "No" ? incidentType : null,
+          requestingAgency: incidentType === "Support" ? requestingAgency.trim() || null : null,
+          requestingAgencyRef: incidentType === "Support" ? requestingAgencyRef.trim() || null : null,
+          tags: [...tags]
+        },
+        vehicles: [...selectedVehicles]
+      });
+      if (noteText.trim()) await dispatch("ADD_NOTE", {
+        incidentId: res.incident.id,
+        text: noteText.trim()
+      });
+      setResult(res.incident);
+      setLifeThreatening(null);
+      setRescueType(null);
+      setFloodRescueCategory(null);
+      setReferringFrom("");
+      setReferringRef("");
+      setSituationOnScene("");
+      setIncidentType(null);
+      setCallersNumber("");
+      setCallersName("");
+      setIncidentContactCalling("Yes");
+      setContactNumber("");
+      setContactName("");
+      setAddr("");
+      setExtraInfo("");
+      setPermissionToEnter(null);
+      setHowToEnter("");
+      setLat("");
+      setLong("");
+      setAssignedHQ("Bankstown");
+      setRequestingAgency("");
+      setRequestingAgencyRef("");
+      setTags(new Set());
+      setResponseType(null);
+      setSelectedVehicles(new Set());
+      setNoteText("");
+    } catch (e) {
+      setSubmitError(e.message || "Something went wrong creating the incident.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 820,
+      margin: "0 auto",
+      padding: "24px 20px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontFamily: "Oswald, sans-serif",
+      fontSize: 22,
+      fontWeight: 700,
+      color: theme.text,
+      margin: 0
+    }
+  }, "Create New Incident"), /*#__PURE__*/React.createElement("button", {
+    onClick: autoFill,
+    style: {
+      background: "none",
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      color: theme.textMuted,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 12.5,
+      padding: "7px 12px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(RefreshCw, {
+    size: 13
+  }), " Auto Create")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.textFaint,
+      marginBottom: 22
+    }
+  }, "Fields marked * are required."), result && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#3FA34D18",
+      border: "1px solid #3FA34D55",
+      borderRadius: 8,
+      padding: "12px 16px",
+      marginBottom: 20,
+      color: "#3FA34D",
+      fontFamily: theme.fontUi,
+      fontSize: 13.5
+    }
+  }, "Incident ", shortId(result.id), " created successfully."), submitError && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#D9463D18",
+      border: "1px solid #D9463D55",
+      borderRadius: 8,
+      padding: "12px 16px",
+      marginBottom: 20,
+      color: "#D9463D",
+      fontFamily: theme.fontUi,
+      fontSize: 13.5
+    }
+  }, submitError), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      padding: 24
+    }
+  }, /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Is this a life threatening emergency?",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(YesNo, {
+    value: lifeThreatening,
+    onChange: setLifeThreatening,
+    theme: theme
+  })), lifeThreatening === "Yes" && /*#__PURE__*/React.createElement(FieldSet, {
+    title: "What type of response is required?",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Rescue Type",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement(PillSelect, {
+    options: RESCUE_TYPES,
+    value: rescueType,
+    onChange: setRescueType,
+    theme: theme
+  })), rescueType === "FR" && /*#__PURE__*/React.createElement(FormRow, {
+    label: "Flood Rescue Category",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("select", {
+    value: floodRescueCategory || "",
+    onChange: e => setFloodRescueCategory(e.target.value),
+    style: inputStyle(theme)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Select…"), Object.entries(FLOOD_RESCUE_CATEGORY_DESC).map(([k, v]) => /*#__PURE__*/React.createElement("option", {
+    key: k,
+    value: k
+  }, k, " — ", v)))), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Referring Agency",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: referringFrom,
+    onChange: e => setReferringFrom(e.target.value),
+    placeholder: "Referring From",
+    style: inputStyle(theme)
+  }), /*#__PURE__*/React.createElement("input", {
+    value: referringRef,
+    onChange: e => setReferringRef(e.target.value),
+    placeholder: "Agency Reference",
+    style: inputStyle(theme)
+  })))), lifeThreatening === "No" && /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Incident Details",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Incident Type",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement(PillSelect, {
+    options: INCIDENT_TYPES,
+    value: incidentType,
+    onChange: setIncidentType,
+    theme: theme
+  })), incidentType === "Support" && /*#__PURE__*/React.createElement(FormRow, {
+    label: "Requesting Agency",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: requestingAgency,
+    onChange: e => setRequestingAgency(e.target.value),
+    placeholder: "Agency Requesting Support",
+    style: inputStyle(theme)
+  }), /*#__PURE__*/React.createElement("input", {
+    value: requestingAgencyRef,
+    onChange: e => setRequestingAgencyRef(e.target.value),
+    placeholder: "Agency Reference",
+    style: inputStyle(theme)
+  })))), lifeThreatening !== null && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Situation On Scene",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Situation",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: situationOnScene,
+    onChange: e => setSituationOnScene(e.target.value),
+    placeholder: "Provide brief details about the incident",
+    style: inputStyle(theme)
+  }))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Caller Details",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Callers Number",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    value: callersNumber,
+    onChange: e => setCallersNumber(e.target.value),
+    placeholder: "Best number to call back on",
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Callers Name",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    value: callersName,
+    onChange: e => setCallersName(e.target.value),
+    placeholder: "Caller's name",
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Incident Contact Calling",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(YesNo, {
+    value: incidentContactCalling,
+    onChange: setIncidentContactCalling,
+    theme: theme
+  }))), incidentContactCalling === "No" && /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Incident Contact Details",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Contacts Number",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: contactNumber,
+    onChange: e => setContactNumber(e.target.value),
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Contacts Name",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: contactName,
+    onChange: e => setContactName(e.target.value),
+    style: inputStyle(theme)
+  }))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Incident Location",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Address",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "relative"
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: addr,
+    onChange: e => setAddr(e.target.value),
+    placeholder: "Address of the incident",
+    style: inputStyle(theme)
+  }), showSuggestions && addressSuggestions.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: "100%",
+      left: 0,
+      right: 0,
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      marginTop: 4,
+      zIndex: 10,
+      boxShadow: "0 8px 24px rgba(0,0,0,0.25)"
+    }
+  }, addressSuggestions.map((s, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    onClick: () => selectAddressSuggestion(s),
+    style: {
+      padding: "8px 12px",
+      fontFamily: theme.fontUi,
+      fontSize: 12.5,
+      color: theme.text,
+      cursor: "pointer",
+      borderBottom: i < addressSuggestions.length - 1 ? `1px solid ${theme.border}` : "none"
+    }
+  }, s.label))), geocodeStatus === "success" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#3FA34D",
+      marginTop: 4,
+      fontFamily: theme.fontUi
+    }
+  }, "Geocoded: ", lat, ", ", long))), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Additional Address Info",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: extraInfo,
+    onChange: e => setExtraInfo(e.target.value),
+    placeholder: "Property names, cross streets, landmarks",
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Permission to Enter",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(YesNo, {
+    value: permissionToEnter,
+    onChange: setPermissionToEnter,
+    theme: theme
+  })), permissionToEnter === "Yes" && /*#__PURE__*/React.createElement(FormRow, {
+    label: "How to Enter",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: howToEnter,
+    onChange: e => setHowToEnter(e.target.value),
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Assigned HQ",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    value: assignedHQ,
+    onChange: e => setAssignedHQ(e.target.value),
+    style: inputStyle(theme)
+  }))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Response Required",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Response Type",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement(PillSelect, {
+    options: lifeThreatening === "Yes" ? ["Immediate"] : ["Immediate", "Priority", "General"],
+    value: responseType,
+    onChange: setResponseType,
+    theme: theme
+  }))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Tags",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Add Tag",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: tagInput,
+    onChange: e => setTagInput(e.target.value),
+    onKeyDown: e => e.key === "Enter" && addTagFromInput(),
+    placeholder: "Type a tag and press Enter",
+    style: inputStyle(theme)
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: addTagFromInput,
+    style: {
+      background: theme.accent,
+      color: theme.accentText,
+      border: "none",
+      borderRadius: 6,
+      padding: "0 16px",
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontWeight: 600
+    }
+  }, "Add")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap",
+      marginTop: 8
+    }
+  }, [...tags].map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    onClick: () => removeTag(t),
+    style: {
+      background: theme.panelAlt,
+      border: `1px solid ${theme.border}`,
+      color: theme.textMuted,
+      fontSize: 11.5,
+      padding: "3px 9px",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: theme.fontUi
+    }
+  }, t, " ×"))))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Tasking",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Notify Vehicles",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap"
+    }
+  }, VEHICLES.map(v => /*#__PURE__*/React.createElement("button", {
+    key: v,
+    onClick: () => toggleVehicle(v),
+    style: {
+      padding: "6px 11px",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: theme.fontMono,
+      fontWeight: 600,
+      fontSize: 11.5,
+      background: selectedVehicles.has(v) ? theme.accent : theme.panelAlt,
+      color: selectedVehicles.has(v) ? theme.accentText : theme.textMuted,
+      border: `1px solid ${selectedVehicles.has(v) ? theme.accent : theme.border}`
+    }
+  }, v))))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Notes",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Note Text",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: noteText,
+    onChange: e => setNoteText(e.target.value),
+    rows: 3,
+    style: {
+      ...inputStyle(theme),
+      resize: "vertical"
+    }
+  }))), /*#__PURE__*/React.createElement("button", {
+    onClick: submit,
+    disabled: !requiredOk || submitting,
+    style: {
+      width: "100%",
+      padding: "13px 0",
+      borderRadius: 7,
+      border: "none",
+      cursor: requiredOk ? "pointer" : "not-allowed",
+      background: requiredOk ? theme.accent : theme.panelAlt,
+      color: requiredOk ? theme.accentText : theme.textGhost,
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 14,
+      marginTop: 4
+    }
+  }, submitting ? "Creating…" : "Create Incident"))));
+}
 function ComingSoon({
   title,
   theme
@@ -730,9 +1580,10 @@ function App() {
   if (path === "/Jobs") page = /*#__PURE__*/React.createElement(JobsRegisterScreen, {
     state: state,
     theme: theme
-  });else if (path === "/Jobs/Create") page = /*#__PURE__*/React.createElement(ComingSoon, {
-    title: "Create New Incident",
-    theme: theme
+  });else if (path === "/Jobs/Create") page = /*#__PURE__*/React.createElement(CreateIncidentScreen, {
+    dispatch: dispatch,
+    theme: theme,
+    navigate: navigate
   });else if (path === "/Jobs/Tasking") page = /*#__PURE__*/React.createElement(ComingSoon, {
     title: "Tasking",
     theme: theme
