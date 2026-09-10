@@ -2428,6 +2428,16 @@ function ActionsSection({
       setBusy(false);
     }
   };
+  const doAcknowledge = async () => {
+    setBusy(true);
+    try {
+      await dispatch("ACKNOWLEDGE_INCIDENT", {
+        incidentId: incident.id
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
   const doReject = async () => {
     if (!reason) return;
     setBusy(true);
@@ -2509,6 +2519,10 @@ function ActionsSection({
       marginBottom: 12
     }
   }, /*#__PURE__*/React.createElement("button", {
+    style: btnStyle,
+    onClick: doAcknowledge,
+    disabled: busy
+  }, "Acknowledge"), /*#__PURE__*/React.createElement("button", {
     style: btnStyle,
     onClick: () => setOpen(open === "reject" ? null : "reject")
   }, "Reject"), /*#__PURE__*/React.createElement("button", {
