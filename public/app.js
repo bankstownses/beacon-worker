@@ -2490,6 +2490,16 @@ function ActionsSection({
       setBusy(false);
     }
   };
+  const doReopen = async () => {
+    setBusy(true);
+    try {
+      await dispatch("REOPEN_INCIDENT", {
+        incidentId: incident.id
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
   const doTask = async () => {
     if (vehiclesSel.size === 0) return;
     setBusy(true);
@@ -2508,6 +2518,15 @@ function ActionsSection({
     n.has(v) ? n.delete(v) : n.add(v);
     return n;
   });
+  const STATUS_ACTIONS = {
+    "New": ["Acknowledge", "Reject", "Task", "Complete", "Cancel"],
+    "Active": ["Reject", "Task", "Complete", "Cancel"],
+    "Rejected": ["Acknowledge"],
+    "Tasked": ["Task"],
+    "Cancelled": ["Reopen"],
+    "Complete": ["Reopen", "Cancel", "Finalise"],
+  };
+  const shown = new Set(STATUS_ACTIONS[incident.status] || []);
   return /*#__PURE__*/React.createElement(DetailSection, {
     title: "Actions",
     theme: theme
@@ -2518,11 +2537,11 @@ function ActionsSection({
       gap: 8,
       marginBottom: 12
     }
-  }, incident.status === "New" && /*#__PURE__*/React.createElement("button", {
+  }, shown.has("Acknowledge") && /*#__PURE__*/React.createElement("button", {
     style: btnStyle,
     onClick: doAcknowledge,
     disabled: busy
-  }, "Acknowledge"), /*#__PURE__*/React.createElement("button", {
+  }, "Acknowledge"), shown.has("Reject") && /*#__PURE__*/React.createElement("button", {
     style: btnStyle,
     onClick: () => setOpen(open === "reject" ? null : "reject")
   }, "Reject"), /*#__PURE__*/React.createElement("button", {
@@ -2533,16 +2552,20 @@ function ActionsSection({
     },
     disabled: incident.reconnoitered || busy,
     onClick: doRecce
-  }, incident.reconnoitered ? "Recce'd ✓" : "Recce'd"), /*#__PURE__*/React.createElement("button", {
+  }, incident.reconnoitered ? "Recce'd ✓" : "Recce'd"), shown.has("Task") && /*#__PURE__*/React.createElement("button", {
     style: btnStyle,
     onClick: () => setOpen(open === "task" ? null : "task")
-  }, "Task"), /*#__PURE__*/React.createElement("button", {
+  }, "Task"), shown.has("Complete") && /*#__PURE__*/React.createElement("button", {
     style: btnStyle,
     onClick: () => setOpen(open === "complete" ? null : "complete")
-  }, "Complete"), /*#__PURE__*/React.createElement("button", {
+  }, "Complete"), shown.has("Cancel") && /*#__PURE__*/React.createElement("button", {
     style: btnStyle,
     onClick: () => setOpen(open === "cancel" ? null : "cancel")
-  }, "Cancel"), !hasUnresolved && /*#__PURE__*/React.createElement("button", {
+  }, "Cancel"), shown.has("Reopen") && /*#__PURE__*/React.createElement("button", {
+    style: btnStyle,
+    onClick: doReopen,
+    disabled: busy
+  }, "Reopen"), shown.has("Finalise") && !hasUnresolved && /*#__PURE__*/React.createElement("button", {
     style: btnStyle,
     onClick: () => setOpen(open === "finalise" ? null : "finalise")
   }, "Finalise")), open === "reject" && /*#__PURE__*/React.createElement("div", {
