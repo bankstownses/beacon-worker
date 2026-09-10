@@ -2518,7 +2518,7 @@ function ActionsSection({
       gap: 8,
       marginBottom: 12
     }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, incident.status === "New" && /*#__PURE__*/React.createElement("button", {
     style: btnStyle,
     onClick: doAcknowledge,
     disabled: busy
