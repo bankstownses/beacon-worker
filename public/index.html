@@ -89,6 +89,93 @@ const SUPPORT_TEMPLATES = [{
   requestingAgency: "NSWPF",
   situationOnScene: "TREE DOWN ONTO FENCE AFTER MVA - NPT"
 }];
+const TAG_TAXONOMY = [{
+  id: "damage",
+  label: "Damage",
+  groups: [{
+    label: "Damage - Tree",
+    tags: ["Branch Down", "Branch Threatening", "Tree Down", "Tree Threatening"]
+  }, {
+    label: "Damage - Building",
+    tags: ["Building Collapse", "Ceiling Damage", "Door Damage", "Flood Threatening", "Flooded", "Flooded - Riverine", "Leaking Roof", "Other", "Roof Damage", "Subsidence", "Threat of Collapse", "Wall Damage", "Window Damage"]
+  }]
+}, {
+  id: "hazard",
+  label: "Hazards",
+  groups: [{
+    label: "Hazards - Building",
+    tags: ["Fibro/Asbestos", "Satellite Dish", "Skylight", "Solar Hot Water", "Solar Power", "Water Rising", "Water Steady or Falling"]
+  }, {
+    label: "Hazards - Miscellaneous",
+    tags: ["Animals", "Erosion", "Other"]
+  }, {
+    label: "Hazards - Utility",
+    tags: ["Blocked Drain", "Burst Gas", "Burst Sewer", "Burst Water", "Electrical", "Power Lines Down", "Power Lines Threatened"]
+  }]
+}, {
+  id: "property",
+  label: "Property",
+  groups: [{
+    label: "Property - Critical Infrastructure",
+    tags: ["Aged Care", "Day Care", "Hospital", "Major Utility", "School"]
+  }, {
+    label: "Property - Roof / Height",
+    tags: ["1 Storey", "2 Storeys", "> 2 Storeys", "Av Slope Roof", "Colourbond", "Fibro", "Flat Roof", "Iron Roof", "Slate Roof", "Steep Roof", "Tiled Roof"]
+  }, {
+    label: "Property - Ownership",
+    tags: ["Commercial", "Council/Government", "Owner", "Public Housing", "Renter", "Residential"]
+  }, {
+    label: "Property - Type",
+    tags: ["Basement", "Bedroom", "Bridge", "Building", "Car / Vehicle", "Caravan / Mobile Home", "Causeway", "Council Land", "Crown Land", "Detached", "Driveway", "Fence", "Garage", "National Park", "Path", "Pool", "Retaining Wall", "Road", "Shed / Workshop", "Terrace", "Townhouse", "Unit", "Vacant Block", "Veranda / Deck", "Yard"]
+  }]
+}, {
+  id: "specialNeeds",
+  label: "Special Needs",
+  groups: [{
+    label: "Special Needs",
+    tags: ["Aged", "Carer", "Hearing Impaired", "Infirm", "Medical", "Non-English Speaking", "Sight Impaired", "Walking Aid", "Wheelchair"]
+  }]
+}, {
+  id: "task",
+  label: "Tasks",
+  groups: [{
+    label: "Tasks - Miscellaneous",
+    tags: ["40km/hr Zone Incident", "Animal Clearance", "Assist Evac", "Body Recovery", "Bushfire Support", "Catering Transport", "Chain Sawing", "Communications", "DPI Support", "Evacuation Required", "Evidence Search", "First Aid", "Flood Intel Collection", "FRAO", "Fuel Drops", "Liaison", "Lighting", "Other", "Pandemic Support", "Patient Lift", "PLB Response", "Pumping", "Radio Duress", "Recovery", "Resupply – Equipment", "Sandbagging", "Shoring", "Tarping", "Transport", "Vehicle Retrieval", "Vessel Used"]
+  }, {
+    label: "Tasks - Search",
+    tags: ["Land Search"]
+  }, {
+    label: "Tasks - Search Category",
+    tags: ["Alpine", "Canyon", "On-Water", "Open", "Remote", "Rugged", "Suburban"]
+  }, {
+    label: "Tasks - Traffic/People",
+    tags: ["Crowd Assistance", "Door Knocking", "Driver Reviver", "Land Recon", "Road Closure", "Traffic Assistance"]
+  }]
+}, {
+  id: "aviation",
+  label: "Aviation",
+  groups: [{
+    label: "Aviation",
+    tags: ["Air Recon", "Air Search", "Air Support", "Body Recovery", "Evacuation", "Flood Assistance", "Fuel Drops", "Land Search", "Other", "Resupply", "RPAS", "Water Search"]
+  }]
+}, {
+  id: "pscu",
+  label: "PSCU",
+  groups: [{
+    label: "PSCU Activity Types",
+    tags: ["PSCU CFR", "PSCU Flood Rescue", "PSCU GLR", "PSCU Land Search", "PSCU Large Scale Event", "PSCU LOD Death", "PSCU LOD Injury", "PSCU PAD", "PSCU RCR", "PSCU Storm", "PSCU USAR", "PSCU VR"]
+  }, {
+    label: "PSCU Intervention Types",
+    tags: ["PSCU Chaplain Visit", "PSCU On Scene Support", "PSCU PFA", "PSCU Targeted Education"]
+  }]
+}, {
+  id: "floodMisc",
+  label: "Flood Misc",
+  groups: [{
+    label: "Flood Misc",
+    tags: ["Clean-up Assistance", "Furniture Lift Required", "General Assistance", "Other", "Pumping Required", "Recovery Assistance", "Sandbags Required"]
+  }]
+}];
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -901,7 +988,7 @@ function CreateIncidentScreen({
   const [requestingAgency, setRequestingAgency] = useState("");
   const [requestingAgencyRef, setRequestingAgencyRef] = useState("");
   const [tags, setTags] = useState(new Set());
-  const [tagInput, setTagInput] = useState("");
+  const [tagPickerTab, setTagPickerTab] = useState(TAG_TAXONOMY[0].id);
   const [responseType, setResponseType] = useState(null);
   const [pscuCategory, setPscuCategory] = useState(null);
   const [sendMessage, setSendMessage] = useState(null);
@@ -1043,15 +1130,9 @@ function CreateIncidentScreen({
     setNoteText(randomBool(0.4) ? pick(RANDOM_NOTES) : "");
     setResult(null);
   };
-  const addTagFromInput = () => {
-    const t = tagInput.trim();
-    if (!t) return;
-    setTags(prev => new Set(prev).add(t));
-    setTagInput("");
-  };
-  const removeTag = t => setTags(prev => {
+  const toggleTag = t => setTags(prev => {
     const n = new Set(prev);
-    n.delete(t);
+    n.has(t) ? n.delete(t) : n.add(t);
     return n;
   });
   const toggleVehicle = v => setSelectedVehicles(prev => {
@@ -1437,54 +1518,86 @@ function CreateIncidentScreen({
   }))), /*#__PURE__*/React.createElement(FieldSet, {
     title: "Tags",
     theme: theme
-  }, /*#__PURE__*/React.createElement(FormRow, {
-    label: "Add Tag",
-    theme: theme,
-    required: true
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    value: tagInput,
-    onChange: e => setTagInput(e.target.value),
-    onKeyDown: e => e.key === "Enter" && addTagFromInput(),
-    placeholder: "Type a tag and press Enter",
-    style: inputStyle(theme)
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: addTagFromInput,
-    style: {
-      background: theme.accent,
-      color: theme.accentText,
-      border: "none",
-      borderRadius: 6,
-      padding: "0 16px",
-      cursor: "pointer",
-      fontFamily: theme.fontUi,
-      fontWeight: 600
-    }
-  }, "Add")), /*#__PURE__*/React.createElement("div", {
+  }, tags.size > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6,
       flexWrap: "wrap",
-      marginTop: 8
+      marginBottom: 10
     }
   }, [...tags].map(t => /*#__PURE__*/React.createElement("span", {
     key: t,
-    onClick: () => removeTag(t),
+    onClick: () => toggleTag(t),
     style: {
-      background: theme.panelAlt,
-      border: `1px solid ${theme.border}`,
-      color: theme.textMuted,
+      background: theme.accent,
+      border: `1px solid ${theme.accent}`,
+      color: theme.accentText,
       fontSize: 11.5,
       padding: "3px 9px",
       borderRadius: 5,
       cursor: "pointer",
-      fontFamily: theme.fontUi
+      fontFamily: theme.fontUi,
+      fontWeight: 600
     }
-  }, t, " ×"))))), /*#__PURE__*/React.createElement(FieldSet, {
+  }, t, " ×"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 4,
+      flexWrap: "wrap",
+      borderBottom: `1px solid ${theme.border}`,
+      marginBottom: 12,
+      paddingBottom: 8
+    }
+  }, TAG_TAXONOMY.map(tab => /*#__PURE__*/React.createElement("button", {
+    key: tab.id,
+    onClick: () => setTagPickerTab(tab.id),
+    style: {
+      padding: "6px 12px",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 12,
+      background: tagPickerTab === tab.id ? theme.accent : "none",
+      color: tagPickerTab === tab.id ? theme.accentText : theme.textMuted,
+      border: `1px solid ${tagPickerTab === tab.id ? theme.accent : theme.border}`
+    }
+  }, tab.label))), TAG_TAXONOMY.filter(t => t.id === tagPickerTab).map(tab => /*#__PURE__*/React.createElement("div", {
+    key: tab.id,
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10
+    }
+  }, tab.groups.map(g => /*#__PURE__*/React.createElement("div", {
+    key: g.label
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 11,
+      color: theme.textFaint,
+      marginBottom: 6
+    }
+  }, g.label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap"
+    }
+  }, g.tags.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => toggleTag(t),
+    style: {
+      padding: "5px 10px",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: theme.fontUi,
+      fontSize: 12,
+      background: tags.has(t) ? theme.accent : theme.panelAlt,
+      color: tags.has(t) ? theme.accentText : theme.textMuted,
+      border: `1px solid ${tags.has(t) ? theme.accent : theme.border}`
+    }
+  }, t)))))))), /*#__PURE__*/React.createElement(FieldSet, {
     title: "Response Required",
     theme: theme
   }, /*#__PURE__*/React.createElement(FormRow, {
