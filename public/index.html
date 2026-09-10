@@ -872,7 +872,8 @@ function PillSelect({
 function CreateIncidentScreen({
   dispatch,
   theme,
-  navigate
+  navigate,
+  state
 }) {
   const [lifeThreatening, setLifeThreatening] = useState(null);
   const [rescueType, setRescueType] = useState(null);
@@ -902,8 +903,17 @@ function CreateIncidentScreen({
   const [tags, setTags] = useState(new Set());
   const [tagInput, setTagInput] = useState("");
   const [responseType, setResponseType] = useState(null);
+  const [pscuCategory, setPscuCategory] = useState(null);
+  const [sendMessage, setSendMessage] = useState(null);
+  const [message, setMessage] = useState("");
+  const [wantsToTask, setWantsToTask] = useState(null);
   const [selectedVehicles, setSelectedVehicles] = useState(new Set());
   const [noteText, setNoteText] = useState("");
+  const [dateReceived, setDateReceived] = useState(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [result, setResult] = useState(null);
@@ -1027,7 +1037,9 @@ function CreateIncidentScreen({
     const permission = randomBool(0.5) ? "Yes" : "No";
     setPermissionToEnter(permission);
     setHowToEnter(permission === "Yes" && randomBool(0.5) ? "Key under mat" : "");
-    setSelectedVehicles(randomBool(0.3) ? new Set([pick(VEHICLES)]) : new Set());
+    const willTask = randomBool(0.3);
+    setWantsToTask(willTask ? "Yes" : "No");
+    setSelectedVehicles(willTask ? new Set([pick(VEHICLES)]) : new Set());
     setNoteText(randomBool(0.4) ? pick(RANDOM_NOTES) : "");
     setResult(null);
   };
@@ -1080,9 +1092,12 @@ function CreateIncidentScreen({
           incidentTypeCategory: lifeThreatening === "No" ? incidentType : null,
           requestingAgency: incidentType === "Support" ? requestingAgency.trim() || null : null,
           requestingAgencyRef: incidentType === "Support" ? requestingAgencyRef.trim() || null : null,
-          tags: [...tags]
+          pscuCategory: pscuCategory || null,
+          message: sendMessage === "Yes" ? message.trim() || null : null,
+          tags: [...tags],
+          taskedAt: dateReceived ? new Date(dateReceived).toISOString() : undefined
         },
-        vehicles: [...selectedVehicles]
+        vehicles: wantsToTask === "Yes" ? [...selectedVehicles] : []
       });
       if (noteText.trim()) await dispatch("ADD_NOTE", {
         incidentId: res.incident.id,
@@ -1110,10 +1125,17 @@ function CreateIncidentScreen({
       setAssignedHQ("Bankstown");
       setRequestingAgency("");
       setRequestingAgencyRef("");
+      setPscuCategory(null);
+      setSendMessage(null);
+      setMessage("");
       setTags(new Set());
       setResponseType(null);
+      setWantsToTask(null);
       setSelectedVehicles(new Set());
       setNoteText("");
+      const d = new Date();
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      setDateReceived(d.toISOString().slice(0, 16));
     } catch (e) {
       setSubmitError(e.message || "Something went wrong creating the incident.");
     } finally {
@@ -1196,96 +1218,13 @@ function CreateIncidentScreen({
       padding: 24
     }
   }, /*#__PURE__*/React.createElement(FieldSet, {
-    title: "Is this a life threatening emergency?",
+    title: "Is This A Life Threatening Emergency?",
     theme: theme
   }, /*#__PURE__*/React.createElement(YesNo, {
     value: lifeThreatening,
     onChange: setLifeThreatening,
     theme: theme
-  })), lifeThreatening === "Yes" && /*#__PURE__*/React.createElement(FieldSet, {
-    title: "What type of response is required?",
-    theme: theme
-  }, /*#__PURE__*/React.createElement(FormRow, {
-    label: "Rescue Type",
-    theme: theme,
-    required: true
-  }, /*#__PURE__*/React.createElement(PillSelect, {
-    options: RESCUE_TYPES,
-    value: rescueType,
-    onChange: setRescueType,
-    theme: theme
-  })), rescueType === "FR" && /*#__PURE__*/React.createElement(FormRow, {
-    label: "Flood Rescue Category",
-    theme: theme
-  }, /*#__PURE__*/React.createElement("select", {
-    value: floodRescueCategory || "",
-    onChange: e => setFloodRescueCategory(e.target.value),
-    style: inputStyle(theme)
-  }, /*#__PURE__*/React.createElement("option", {
-    value: ""
-  }, "Select…"), Object.entries(FLOOD_RESCUE_CATEGORY_DESC).map(([k, v]) => /*#__PURE__*/React.createElement("option", {
-    key: k,
-    value: k
-  }, k, " — ", v)))), /*#__PURE__*/React.createElement(FormRow, {
-    label: "Referring Agency",
-    theme: theme
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    value: referringFrom,
-    onChange: e => setReferringFrom(e.target.value),
-    placeholder: "Referring From",
-    style: inputStyle(theme)
-  }), /*#__PURE__*/React.createElement("input", {
-    value: referringRef,
-    onChange: e => setReferringRef(e.target.value),
-    placeholder: "Agency Reference",
-    style: inputStyle(theme)
-  })))), lifeThreatening === "No" && /*#__PURE__*/React.createElement(FieldSet, {
-    title: "Incident Details",
-    theme: theme
-  }, /*#__PURE__*/React.createElement(FormRow, {
-    label: "Incident Type",
-    theme: theme,
-    required: true
-  }, /*#__PURE__*/React.createElement(PillSelect, {
-    options: INCIDENT_TYPES,
-    value: incidentType,
-    onChange: setIncidentType,
-    theme: theme
-  })), incidentType === "Support" && /*#__PURE__*/React.createElement(FormRow, {
-    label: "Requesting Agency",
-    theme: theme
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    value: requestingAgency,
-    onChange: e => setRequestingAgency(e.target.value),
-    placeholder: "Agency Requesting Support",
-    style: inputStyle(theme)
-  }), /*#__PURE__*/React.createElement("input", {
-    value: requestingAgencyRef,
-    onChange: e => setRequestingAgencyRef(e.target.value),
-    placeholder: "Agency Reference",
-    style: inputStyle(theme)
-  })))), lifeThreatening !== null && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FieldSet, {
-    title: "Situation On Scene",
-    theme: theme
-  }, /*#__PURE__*/React.createElement(FormRow, {
-    label: "Situation",
-    theme: theme
-  }, /*#__PURE__*/React.createElement("input", {
-    value: situationOnScene,
-    onChange: e => setSituationOnScene(e.target.value),
-    placeholder: "Provide brief details about the incident",
-    style: inputStyle(theme)
-  }))), /*#__PURE__*/React.createElement(FieldSet, {
+  })), lifeThreatening !== null && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FieldSet, {
     title: "Caller Details",
     theme: theme
   }, /*#__PURE__*/React.createElement(FormRow, {
@@ -1408,16 +1347,92 @@ function CreateIncidentScreen({
     onChange: e => setAssignedHQ(e.target.value),
     style: inputStyle(theme)
   }))), /*#__PURE__*/React.createElement(FieldSet, {
-    title: "Response Required",
+    title: "Incident Details",
     theme: theme
   }, /*#__PURE__*/React.createElement(FormRow, {
-    label: "Response Type",
+    label: "Situation On Scene",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: situationOnScene,
+    onChange: e => setSituationOnScene(e.target.value),
+    placeholder: "Provide brief details about the incident",
+    style: inputStyle(theme)
+  })), lifeThreatening === "Yes" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Rescue Type",
     theme: theme,
     required: true
   }, /*#__PURE__*/React.createElement(PillSelect, {
-    options: lifeThreatening === "Yes" ? ["Immediate"] : ["Immediate", "Priority", "General"],
-    value: responseType,
-    onChange: setResponseType,
+    options: RESCUE_TYPES,
+    value: rescueType,
+    onChange: setRescueType,
+    theme: theme
+  })), rescueType === "FR" && /*#__PURE__*/React.createElement(FormRow, {
+    label: "Flood Rescue Category",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("select", {
+    value: floodRescueCategory || "",
+    onChange: e => setFloodRescueCategory(e.target.value),
+    style: inputStyle(theme)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Select…"), Object.entries(FLOOD_RESCUE_CATEGORY_DESC).map(([k, v]) => /*#__PURE__*/React.createElement("option", {
+    key: k,
+    value: k
+  }, k, " — ", v)))), /*#__PURE__*/React.createElement(FormRow, {
+    label: "Referring Agency",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: referringFrom,
+    onChange: e => setReferringFrom(e.target.value),
+    placeholder: "Referring From",
+    style: inputStyle(theme)
+  }), /*#__PURE__*/React.createElement("input", {
+    value: referringRef,
+    onChange: e => setReferringRef(e.target.value),
+    placeholder: "Agency Reference",
+    style: inputStyle(theme)
+  })))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Incident Type",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement(PillSelect, {
+    options: INCIDENT_TYPES,
+    value: incidentType,
+    onChange: setIncidentType,
+    theme: theme
+  })), incidentType === "Support" && /*#__PURE__*/React.createElement(FormRow, {
+    label: "Requesting Agency",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: requestingAgency,
+    onChange: e => setRequestingAgency(e.target.value),
+    placeholder: "Agency Requesting Support",
+    style: inputStyle(theme)
+  }), /*#__PURE__*/React.createElement("input", {
+    value: requestingAgencyRef,
+    onChange: e => setRequestingAgencyRef(e.target.value),
+    placeholder: "Agency Reference",
+    style: inputStyle(theme)
+  }))))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Incident Categorisation",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "PSCU Category",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(PillSelect, {
+    options: ["Orange", "Red", "None"],
+    value: pscuCategory || "None",
+    onChange: v => setPscuCategory(v === "None" ? null : v),
     theme: theme
   }))), /*#__PURE__*/React.createElement(FieldSet, {
     title: "Tags",
@@ -1470,32 +1485,112 @@ function CreateIncidentScreen({
       fontFamily: theme.fontUi
     }
   }, t, " ×"))))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Response Required",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Response Type",
+    theme: theme,
+    required: true
+  }, /*#__PURE__*/React.createElement(PillSelect, {
+    options: lifeThreatening === "Yes" ? ["Immediate"] : ["Immediate", "Priority", "General"],
+    value: responseType,
+    onChange: setResponseType,
+    theme: theme
+  }))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Messaging",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Send Message",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(YesNo, {
+    value: sendMessage,
+    onChange: setSendMessage,
+    theme: theme
+  })), sendMessage === "Yes" && /*#__PURE__*/React.createElement(FormRow, {
+    label: "Message",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: message,
+    onChange: e => setMessage(e.target.value),
+    rows: 2,
+    style: {
+      ...inputStyle(theme),
+      resize: "vertical"
+    }
+  }))), /*#__PURE__*/React.createElement(FieldSet, {
     title: "Tasking",
     theme: theme
   }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Task Vehicles Now?",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(YesNo, {
+    value: wantsToTask,
+    onChange: setWantsToTask,
+    theme: theme
+  })), wantsToTask === "Yes" && /*#__PURE__*/React.createElement(FormRow, {
     label: "Notify Vehicles",
     theme: theme
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 6,
-      flexWrap: "wrap"
-    }
-  }, VEHICLES.map(v => /*#__PURE__*/React.createElement("button", {
-    key: v,
-    onClick: () => toggleVehicle(v),
-    style: {
-      padding: "6px 11px",
-      borderRadius: 6,
-      cursor: "pointer",
-      fontFamily: theme.fontMono,
-      fontWeight: 600,
-      fontSize: 11.5,
-      background: selectedVehicles.has(v) ? theme.accent : theme.panelAlt,
-      color: selectedVehicles.has(v) ? theme.accentText : theme.textMuted,
-      border: `1px solid ${selectedVehicles.has(v) ? theme.accent : theme.border}`
-    }
-  }, v))))), /*#__PURE__*/React.createElement(FieldSet, {
+  }, (() => {
+    const available = state ? VEHICLES.filter(v => state.vehicleStates?.[v]?.teamStatus?.id !== "stooddown") : VEHICLES;
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: theme.fontUi,
+        fontSize: 11.5,
+        color: theme.textFaint
+      }
+    }, "Showing vehicles not stood down (", available.length, " of ", VEHICLES.length, ")"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setSelectedVehicles(prev => new Set([...prev].filter(v => available.includes(v)))),
+      style: {
+        background: "none",
+        border: `1px solid ${theme.border}`,
+        borderRadius: 6,
+        color: theme.textMuted,
+        fontFamily: theme.fontUi,
+        fontWeight: 600,
+        fontSize: 11.5,
+        padding: "5px 10px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 5
+      }
+    }, /*#__PURE__*/React.createElement(RefreshCw, {
+      size: 12
+    }), " Refresh")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 6,
+        flexWrap: "wrap"
+      }
+    }, available.length === 0 ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: theme.fontUi,
+        fontSize: 12.5,
+        color: theme.textGhost
+      }
+    }, "No vehicles currently available -- all stood down.") : available.map(v => /*#__PURE__*/React.createElement("button", {
+      key: v,
+      onClick: () => toggleVehicle(v),
+      style: {
+        padding: "6px 11px",
+        borderRadius: 6,
+        cursor: "pointer",
+        fontFamily: theme.fontMono,
+        fontWeight: 600,
+        fontSize: 11.5,
+        background: selectedVehicles.has(v) ? theme.accent : theme.panelAlt,
+        color: selectedVehicles.has(v) ? theme.accentText : theme.textMuted,
+        border: `1px solid ${selectedVehicles.has(v) ? theme.accent : theme.border}`
+      }
+    }, v))));
+  })())), /*#__PURE__*/React.createElement(FieldSet, {
     title: "Notes",
     theme: theme
   }, /*#__PURE__*/React.createElement(FormRow, {
@@ -1509,6 +1604,17 @@ function CreateIncidentScreen({
       ...inputStyle(theme),
       resize: "vertical"
     }
+  }))), /*#__PURE__*/React.createElement(FieldSet, {
+    title: "Date Received",
+    theme: theme
+  }, /*#__PURE__*/React.createElement(FormRow, {
+    label: "Date Received",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "datetime-local",
+    value: dateReceived,
+    onChange: e => setDateReceived(e.target.value),
+    style: inputStyle(theme)
   }))), /*#__PURE__*/React.createElement("button", {
     onClick: submit,
     disabled: !requiredOk || submitting,
@@ -1583,7 +1689,8 @@ function App() {
   });else if (path === "/Jobs/Create") page = /*#__PURE__*/React.createElement(CreateIncidentScreen, {
     dispatch: dispatch,
     theme: theme,
-    navigate: navigate
+    navigate: navigate,
+    state: state
   });else if (path === "/Jobs/Tasking") page = /*#__PURE__*/React.createElement(ComingSoon, {
     title: "Tasking",
     theme: theme
