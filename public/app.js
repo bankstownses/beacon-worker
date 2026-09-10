@@ -2008,6 +2008,9 @@ function App() {
   } = useRouter();
   const [themeName, setThemeName] = useState(() => localStorage.getItem("beacon_theme") || "dark");
   const theme = THEMES[themeName];
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", themeName);
+  }, [themeName]);
   const toggleTheme = () => {
     const next = themeName === "dark" ? "light" : "dark";
     setThemeName(next);

@@ -31,20 +31,29 @@ html, body { margin: 0; padding: 0; overflow-x: hidden; width: 100%; }
   .dash-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   .dash-actions > a { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
 
-  /* Jobs Register: table on tablet+/desktop, card list on mobile */
-  .jobs-table-wrap { width: 100%; overflow-x: visible; }
-  .jobs-table { width: 100%; border-collapse: collapse; }
-  @media (max-width: 767px) {
-    .jobs-table thead { display: none; }
-    .jobs-table, .jobs-table tbody, .jobs-table tr, .jobs-table td { display: block; width: 100%; }
-    .jobs-table tr { padding: 10px 12px; }
-    .jobs-table td { padding: 3px 0 !important; border: none !important; white-space: normal !important; max-width: none !important; }
-    .jobs-table td[data-label]::before {
-      content: attr(data-label); font-weight: 700; display: inline-block; min-width: 92px;
-      font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.65; margin-right: 8px;
-    }
-    .jobs-table td:empty { display: none; }
+  /* Jobs Register: always a real table. On narrow screens it scrolls
+     horizontally within its own box (not the whole page), and the Id
+     column stays pinned on the left so you never lose context. */
+  .jobs-table-wrap {
+    width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
   }
+  .jobs-table { width: 100%; min-width: 640px; border-collapse: collapse; }
+  @media (min-width: 900px) { .jobs-table { min-width: 0; } }
+
+  .jobs-table th:first-child, .jobs-table td:first-child {
+    position: sticky; left: 0; z-index: 1;
+  }
+  [data-theme="dark"] .jobs-table thead th:first-child { background: #161B20; }
+  [data-theme="dark"] .jobs-table tbody td:first-child { background: #161B20; }
+  [data-theme="light"] .jobs-table thead th:first-child { background: #f7f8fa; }
+  [data-theme="light"] .jobs-table tbody td:first-child { background: #ffffff; }
+  /* A subtle right-edge shadow hints there's more to scroll to. */
+  .jobs-table-wrap { position: relative; }
+  .jobs-table-wrap::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 14px; pointer-events: none;
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.12));
+  }
+  @media (min-width: 900px) { .jobs-table-wrap::after { display: none; } }
 
   /* Create Incident form rows: stacked on mobile, label+field on tablet+ */
   .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 2px; }
