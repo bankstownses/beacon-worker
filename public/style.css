@@ -47,10 +47,10 @@ html, body { margin: 0; padding: 0; overflow-x: hidden; width: 100%; }
   .jobs-table th:first-child, .jobs-table td:first-child {
     position: sticky; left: 0; z-index: 1;
   }
-  [data-theme="dark"] .jobs-table thead th:first-child { background: #161B20; }
-  [data-theme="dark"] .jobs-table tbody td:first-child { background: #161B20; }
-  [data-theme="light"] .jobs-table thead th:first-child { background: #f7f8fa; }
-  [data-theme="light"] .jobs-table tbody td:first-child { background: #ffffff; }
+  [data-theme="dark"] .jobs-table thead th:first-child { background: #0C0F12; }
+  [data-theme="dark"] .jobs-table tbody td:first-child { background: #0C0F12; }
+  [data-theme="light"] .jobs-table thead th:first-child { background: #F7F6F3; }
+  [data-theme="light"] .jobs-table tbody td:first-child { background: #F7F6F3; }
   /* A subtle right-edge shadow hints there's more to scroll to. */
   .jobs-table-wrap { position: relative; }
   .jobs-table-wrap::after {

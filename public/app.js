@@ -321,45 +321,45 @@ function Link({
 const THEMES = {
   dark: {
     name: "dark",
-    bg: "#05070a",
-    panel: "#161B20",
-    panelAlt: "#0d1114",
-    border: "#2E373F",
-    text: "#F2F5F6",
-    textMuted: "#B7C0C8",
-    textFaint: "#7C8791",
-    textGhost: "#5c6771",
-    accent: "#2F8FD1",
-    accentText: "#05070a",
-    navBg: "#0d1114",
-    navText: "#F2F5F6",
-    navBorder: "#1c2228",
-    tableHeadBg: "#161B20",
-    tableRowBorder: "#1c2228",
-    tableRowHover: "#161B20",
-    fontUi: "Inter, -apple-system, sans-serif",
+    bg: "#0C0F12",
+    panel: "#15191D",
+    panelAlt: "#0F1215",
+    border: "#20242A",
+    text: "#E9EBED",
+    textMuted: "#B0B6BC",
+    textFaint: "#7C838B",
+    textGhost: "#4B5158",
+    accent: "#E3A23D",
+    accentText: "#0C0F12",
+    navBg: "#0C0F12",
+    navText: "#E9EBED",
+    navBorder: "#1B1F23",
+    tableHeadBg: "#0C0F12",
+    tableRowBorder: "#1B1F23",
+    tableRowHover: "#181C20",
+    fontUi: "'Manrope', -apple-system, sans-serif",
     fontMono: "'JetBrains Mono', monospace"
   },
   light: {
     name: "light",
-    bg: "#eef1f4",
-    panel: "#ffffff",
-    panelAlt: "#f7f8fa",
-    border: "#d7dde3",
-    text: "#1f2933",
-    textMuted: "#3e4c59",
-    textFaint: "#7b8794",
-    textGhost: "#9aa5b1",
-    accent: "#2f6fb0",
-    accentText: "#ffffff",
-    navBg: "#2c3e50",
-    navText: "#ffffff",
-    navBorder: "#1f2c39",
-    tableHeadBg: "#f7f8fa",
-    tableRowBorder: "#e4e9ed",
-    tableRowHover: "#f2f5f8",
-    fontUi: "-apple-system, 'Segoe UI', Arial, sans-serif",
-    fontMono: "Consolas, monospace"
+    bg: "#F7F6F3",
+    panel: "#FFFFFF",
+    panelAlt: "#F1EFEB",
+    border: "#E4E1DA",
+    text: "#1E1D1B",
+    textMuted: "#57534C",
+    textFaint: "#8A857C",
+    textGhost: "#B4AFA5",
+    accent: "#B5721F",
+    accentText: "#FFFFFF",
+    navBg: "#F7F6F3",
+    navText: "#1E1D1B",
+    navBorder: "#E4E1DA",
+    tableHeadBg: "#F7F6F3",
+    tableRowBorder: "#EDEAE4",
+    tableRowHover: "#F1EFEB",
+    fontUi: "'Manrope', -apple-system, sans-serif",
+    fontMono: "'JetBrains Mono', monospace"
   }
 };
 const ThemeContext = createContext(THEMES.dark);
@@ -431,19 +431,25 @@ function Chip({
 }) {
   return /*#__PURE__*/React.createElement("span", {
     style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
       fontFamily: theme.fontMono,
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: 600,
       letterSpacing: "0.02em",
-      color,
-      background: color + "22",
-      border: `1px solid ${color}55`,
-      padding: "2px 8px",
-      borderRadius: 5,
-      display: "inline-block",
+      color: theme.textMuted,
       whiteSpace: "nowrap"
     }
-  }, label);
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 6,
+      height: 6,
+      borderRadius: "50%",
+      background: color,
+      flexShrink: 0
+    }
+  }), label);
 }
 
 // ---------------------------------------------------------------
@@ -481,7 +487,7 @@ function TopNav({
     navigate: navigate,
     style: {
       color: theme.navText,
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       fontWeight: 700,
       fontSize: 18,
       padding: "14px 16px 14px 0"
@@ -583,38 +589,35 @@ function Dashboard({
   const incidents = state?.allIncidents || [];
   const activeCount = incidents.filter(i => i.status === "Active" || i.status === "New").length;
   const completeCount = incidents.filter(i => i.status === "Complete" || i.status === "Finalised").length;
-  const statCard = (label, value, color) => /*#__PURE__*/React.createElement("div", {
+  const statCard = (label, value, color, isLast) => /*#__PURE__*/React.createElement("div", {
     style: {
-      background: theme.panel,
-      border: `1px solid ${theme.border}`,
-      borderRadius: 8,
-      padding: "18px 20px",
       flex: 1,
-      minWidth: 160
+      minWidth: 140,
+      padding: "0 24px 0 0",
+      borderRight: isLast ? "none" : `1px solid ${theme.border}`
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: theme.fontUi,
-      fontSize: 12,
+      fontSize: 13,
       color: theme.textFaint,
-      fontWeight: 600,
-      textTransform: "uppercase",
-      letterSpacing: "0.04em",
-      marginBottom: 6
+      fontWeight: 500,
+      marginBottom: 8
     }
   }, label), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontFamily: "Oswald, sans-serif",
-      fontSize: 32,
-      fontWeight: 700,
-      color: color || theme.text
+      fontFamily: "'Manrope', sans-serif",
+      fontSize: 36,
+      fontWeight: 800,
+      color: color || theme.text,
+      lineHeight: 1
     }
   }, value));
   return /*#__PURE__*/React.createElement("div", {
     className: "page-wrap"
   }, /*#__PURE__*/React.createElement("h2", {
     style: {
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       fontSize: 24,
       fontWeight: 700,
       color: theme.text,
@@ -625,16 +628,17 @@ function Dashboard({
       fontFamily: theme.fontUi,
       fontSize: 13,
       color: theme.textFaint,
-      marginBottom: 24
+      marginBottom: 32
     }
   }, "Bankstown Unit"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 16,
       flexWrap: "wrap",
-      marginBottom: 28
+      marginBottom: 36,
+      paddingBottom: 32,
+      borderBottom: `1px solid ${theme.border}`
     }
-  }, statCard("Total Incidents", incidents.length), statCard("Active / New", activeCount, theme.accent), statCard("Complete", completeCount)), /*#__PURE__*/React.createElement("div", {
+  }, statCard("Total Incidents", incidents.length), statCard("Active / New", activeCount, theme.accent), statCard("Complete", completeCount, null, true)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 12,
@@ -732,7 +736,7 @@ function JobsRegisterScreen({
     className: "page-wrap"
   }, /*#__PURE__*/React.createElement("h2", {
     style: {
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       fontSize: 22,
       fontWeight: 700,
       color: theme.text,
@@ -748,9 +752,7 @@ function JobsRegisterScreen({
   }, incidents.length, " incidents"), /*#__PURE__*/React.createElement("div", {
     className: "jobs-table-wrap",
     style: {
-      background: theme.panel,
-      border: `1px solid ${theme.border}`,
-      borderRadius: 8
+      background: theme.bg
     }
   }, /*#__PURE__*/React.createElement("table", {
     className: "jobs-table"
@@ -1279,7 +1281,7 @@ function CreateIncidentScreen({
     }
   }, /*#__PURE__*/React.createElement("h2", {
     style: {
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       fontSize: 22,
       fontWeight: 700,
       color: theme.text,
@@ -1800,7 +1802,7 @@ function ComingSoon({
     }
   }, /*#__PURE__*/React.createElement("h2", {
     style: {
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       fontSize: 22,
       fontWeight: 700,
       color: theme.text,
@@ -2207,7 +2209,7 @@ function ResolveNoteModal({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       fontSize: 17,
       fontWeight: 700,
       color: theme.text,
@@ -2930,7 +2932,7 @@ function ModalShell({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       fontSize: 17,
       fontWeight: 700,
       color: theme.text,
@@ -3695,7 +3697,7 @@ function IncidentDetailScreen({
   }, /*#__PURE__*/React.createElement("h2", {
     className: "incident-header-title",
     style: {
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       fontWeight: 700,
       color: theme.text,
       margin: 0
