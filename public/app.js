@@ -3303,6 +3303,7 @@ function ProvidersSection({
     }
   });
   const closeModal = () => setModal(null);
+  const visibleProviders = providers.filter((p) => p.status !== "Cancelled");
   const statusButtonStyle = (provider, status) => {
     const isCurrent = provider.status === status;
     const terminal = provider.status === "Complete" || provider.status === "Cancelled";
@@ -3331,14 +3332,14 @@ function ProvidersSection({
   return /*#__PURE__*/React.createElement(DetailSection, {
     title: "Providers",
     theme: theme
-  }, providers.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, visibleProviders.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
       gap: 12,
       marginBottom: 14
     }
-  }, providers.map(p => /*#__PURE__*/React.createElement("div", {
+  }, visibleProviders.map(p => /*#__PURE__*/React.createElement("div", {
     key: p.id,
     style: {
       background: theme.panelAlt,
@@ -3374,7 +3375,7 @@ function ProvidersSection({
       style: btn.style,
       disabled: btn.disabled,
       onClick: btn.onClick
-    }, status);
+    }, status === "Cancelled" ? "Cancel" : status);
   }))))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setAttaching(true),
     style: {
