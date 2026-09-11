@@ -74,22 +74,20 @@ html, body { margin: 0; padding: 0; overflow-x: hidden; width: 100%; }
   /* Incident Detail page */
   .incident-header {
     display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-    padding: 14px 16px; border-radius: 8px 8px 0 0;
+    padding: 4px 0 16px;
   }
   @media (min-width: 560px) {
     .incident-header { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; }
   }
-  .incident-header-title { font-size: 17px; word-break: break-word; }
-  @media (min-width: 600px) { .incident-header-title { font-size: 19px; } }
+  .incident-header-title { font-size: 19px; word-break: break-word; }
+  @media (min-width: 600px) { .incident-header-title { font-size: 22px; } }
   .incident-header-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
   .incident-detail-body {
-    display: grid; grid-template-columns: 1fr; gap: 18px;
-    border-radius: 0 0 8px 8px; padding: 16px;
+    display: grid; grid-template-columns: 1fr; gap: 24px;
   }
-  @media (min-width: 600px) { .incident-detail-body { padding: 20px; gap: 22px; } }
   @media (min-width: 900px) {
-    .incident-detail-body { grid-template-columns: 1.4fr 1fr; gap: 28px; padding: 24px; }
+    .incident-detail-body { grid-template-columns: 1.4fr 1fr; gap: 40px; }
   }
 
   .detail-row { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; font-size: 13.5px; }

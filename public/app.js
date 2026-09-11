@@ -886,19 +886,17 @@ function FieldSet({
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      marginBottom: 22
+      marginBottom: 28
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontFamily: theme.fontUi,
-      fontSize: 12,
+      fontFamily: "'Manrope', sans-serif",
+      fontSize: 15,
       fontWeight: 700,
-      textTransform: "uppercase",
-      letterSpacing: "0.05em",
-      color: theme.accent,
+      color: theme.text,
       borderBottom: `1px solid ${theme.border}`,
-      paddingBottom: 6,
-      marginBottom: 14
+      paddingBottom: 10,
+      marginBottom: 16
     }
   }, title), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1335,12 +1333,7 @@ function CreateIncidentScreen({
       fontSize: 13.5
     }
   }, submitError), /*#__PURE__*/React.createElement("div", {
-    className: "create-incident-panel",
-    style: {
-      background: theme.panel,
-      border: `1px solid ${theme.border}`,
-      borderRadius: 8
-    }
+    className: "create-incident-panel"
   }, /*#__PURE__*/React.createElement(FieldSet, {
     title: "Is This A Life Threatening Emergency?",
     theme: theme
@@ -1849,19 +1842,17 @@ function DetailSection({
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      marginBottom: 20
+      marginBottom: 26
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12,
+      fontSize: 15,
       fontWeight: 700,
-      textTransform: "uppercase",
-      letterSpacing: "0.05em",
-      color: theme.accent,
+      color: theme.text,
       borderBottom: `1px solid ${theme.border}`,
-      paddingBottom: 6,
-      marginBottom: 8,
-      fontFamily: theme.fontUi
+      paddingBottom: 10,
+      marginBottom: 12,
+      fontFamily: "'Manrope', sans-serif"
     }
   }, title), children);
 }
@@ -3338,16 +3329,13 @@ function ProvidersSection({
     style: {
       display: "flex",
       flexDirection: "column",
-      gap: 12,
       marginBottom: 14
     }
   }, visibleProviders.map(p => /*#__PURE__*/React.createElement("div", {
     key: p.id,
     style: {
-      background: theme.panelAlt,
-      border: `1px solid ${theme.border}`,
-      borderRadius: 8,
-      padding: 12
+      borderBottom: `1px solid ${theme.tableRowBorder}`,
+      padding: "12px 0"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3691,14 +3679,14 @@ function IncidentDetailScreen({
   }, "← Back to Incident Register"), /*#__PURE__*/React.createElement("div", {
     className: "incident-header",
     style: {
-      background: priColor + "18",
-      borderBottom: `2px solid ${priColor}`
+      borderLeft: `3px solid ${priColor}`,
+      paddingLeft: 16
     }
   }, /*#__PURE__*/React.createElement("h2", {
     className: "incident-header-title",
     style: {
       fontFamily: "'Manrope', sans-serif",
-      fontWeight: 700,
+      fontWeight: 800,
       color: theme.text,
       margin: 0
     }
@@ -3717,9 +3705,9 @@ function IncidentDetailScreen({
   }))), /*#__PURE__*/React.createElement("div", {
     className: "incident-detail-body",
     style: {
-      background: theme.panel,
-      border: `1px solid ${theme.border}`,
-      borderTop: "none"
+      borderTop: `1px solid ${theme.border}`,
+      marginTop: 20,
+      paddingTop: 8
     }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(DetailSection, {
     title: "Incident Details",
