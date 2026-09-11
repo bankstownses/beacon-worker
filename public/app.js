@@ -2878,14 +2878,503 @@ function TeamsSection({
 // ---------------------------------------------------------------
 // PROVIDERS & MAP -- placeholders, both intentionally disabled.
 // ---------------------------------------------------------------
-function ProvidersSection({
-  theme
+const PROVIDER_STATUS_ORDER = ["Requested", "Referred", "Complete", "Cancelled"];
+const PROVIDER_STATUS_COLORS = {
+  Requested: "#7C8791",
+  Referred: "#E8B23C",
+  Complete: "#3FA34D",
+  Cancelled: "#D9463D"
+};
+function hasActiveTeamsClient(state, incidentId) {
+  return Object.values(state.vehicleStates || {}).some(v => (v.queue || []).some(j => j.id === incidentId) || (v.incomingQueue || []).some(j => j.id === incidentId));
+}
+
+// Converts an ISO string to the value a datetime-local input needs, and back.
+function isoToLocalInput(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function localInputToIso(val) {
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+function ModalShell({
+  theme,
+  title,
+  children
 }) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.5)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 100,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: theme.panel,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 10,
+      padding: 20,
+      maxWidth: 440,
+      width: "100%",
+      maxHeight: "90vh",
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "Oswald, sans-serif",
+      fontSize: 17,
+      fontWeight: 700,
+      color: theme.text,
+      marginBottom: 14
+    }
+  }, title), children));
+}
+function ModalField({
+  label,
+  theme,
+  children
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12,
+      fontWeight: 700,
+      color: theme.textFaint,
+      textTransform: "uppercase",
+      letterSpacing: "0.03em",
+      marginBottom: 6
+    }
+  }, label), children);
+}
+function ModalButtons({
+  theme,
+  onCancel,
+  cancelLabel,
+  actions
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+      marginTop: 6
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    style: {
+      flex: 1,
+      minWidth: 90,
+      background: "none",
+      border: `1px solid ${theme.border}`,
+      borderRadius: 6,
+      color: theme.textMuted,
+      fontFamily: theme.fontUi,
+      fontWeight: 600,
+      fontSize: 13,
+      padding: "10px 0",
+      cursor: "pointer"
+    }
+  }, cancelLabel || "Cancel"), actions.map((a, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    onClick: a.onClick,
+    disabled: a.disabled,
+    style: {
+      flex: 2,
+      minWidth: 120,
+      background: a.disabled ? theme.panelAlt : a.color || theme.accent,
+      color: a.disabled ? theme.textGhost : a.textColor || theme.accentText,
+      border: "none",
+      borderRadius: 6,
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 13,
+      padding: "10px 0",
+      cursor: a.disabled ? "not-allowed" : "pointer"
+    }
+  }, a.label)));
+}
+function AttachProviderModal({
+  incident,
+  theme,
+  dispatch,
+  onClose
+}) {
+  const [agency, setAgency] = useState("");
+  const [reference, setReference] = useState("");
+  const [details, setDetails] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!agency.trim()) return;
+    setSaving(true);
+    try {
+      await dispatch("ATTACH_PROVIDER", {
+        incidentId: incident.id,
+        agency: agency.trim(),
+        reference: reference.trim(),
+        details: details.trim()
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement(ModalShell, {
+    theme: theme,
+    title: "Attach New Provider | Provider"
+  }, /*#__PURE__*/React.createElement(ModalField, {
+    label: "Agency/Company",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: agency,
+    onChange: e => setAgency(e.target.value),
+    placeholder: "Agency / Provider Name",
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(ModalField, {
+    label: "Reference",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    value: reference,
+    onChange: e => setReference(e.target.value),
+    placeholder: "Agency / Provider Reference",
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(ModalField, {
+    label: "Details",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: details,
+    onChange: e => setDetails(e.target.value),
+    rows: 3,
+    style: {
+      ...inputStyle(theme),
+      resize: "vertical"
+    }
+  })), /*#__PURE__*/React.createElement(ModalButtons, {
+    theme: theme,
+    onCancel: onClose,
+    actions: [{
+      label: saving ? "Saving…" : "Save Provider",
+      onClick: save,
+      disabled: !agency.trim() || saving
+    }]
+  }));
+}
+function CancelProviderModal({
+  provider,
+  theme,
+  dispatch,
+  onClose
+}) {
+  const [busy, setBusy] = useState(false);
+  const confirm = async () => {
+    setBusy(true);
+    try {
+      await dispatch("CANCEL_PROVIDER", {
+        incidentId: provider.incidentId,
+        providerId: provider.id
+      });
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement(ModalShell, {
+    theme: theme,
+    title: "Confirm Provider Cancellation"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 14,
+      color: theme.textMuted,
+      marginBottom: 16
+    }
+  }, "Are you sure you want to cancel the provider: ", provider.agency, "?"), /*#__PURE__*/React.createElement(ModalButtons, {
+    theme: theme,
+    onCancel: onClose,
+    cancelLabel: "NO",
+    actions: [{
+      label: "YES",
+      onClick: confirm,
+      disabled: busy,
+      color: "#D9463D",
+      textColor: "#fff"
+    }]
+  }));
+}
+function ReferProviderModal({
+  provider,
+  theme,
+  dispatch,
+  onClose
+}) {
+  const [note, setNote] = useState("");
+  const [timestamp, setTimestamp] = useState(isoToLocalInput());
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await dispatch("REFER_PROVIDER", {
+        incidentId: provider.incidentId,
+        providerId: provider.id,
+        note,
+        timestamp: localInputToIso(timestamp)
+      });
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement(ModalShell, {
+    theme: theme,
+    title: "Refer Incident | Provider"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 14,
+      fontWeight: 600,
+      color: theme.text,
+      marginBottom: 14
+    }
+  }, provider.agency, provider.reference ? ` (ref: ${provider.reference})` : ""), /*#__PURE__*/React.createElement(ModalField, {
+    label: "Details",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 13,
+      color: theme.textFaint
+    }
+  }, provider.details || "—")), /*#__PURE__*/React.createElement(ModalField, {
+    label: "Note",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: note,
+    onChange: e => setNote(e.target.value),
+    rows: 3,
+    placeholder: "Details here",
+    style: {
+      ...inputStyle(theme),
+      resize: "vertical"
+    }
+  })), /*#__PURE__*/React.createElement(ModalField, {
+    label: "Timestamp",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "datetime-local",
+    value: timestamp,
+    onChange: e => setTimestamp(e.target.value),
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(ModalButtons, {
+    theme: theme,
+    onCancel: onClose,
+    actions: [{
+      label: busy ? "Referring…" : "Refer to Supplier",
+      onClick: submit,
+      disabled: busy
+    }]
+  }));
+}
+function CompleteProviderModal({
+  incident,
+  state,
+  provider,
+  theme,
+  dispatch,
+  onClose
+}) {
+  const [details, setDetails] = useState("");
+  const [timestamp, setTimestamp] = useState(isoToLocalInput());
+  const [busy, setBusy] = useState(false);
+  const canCompleteIncident = !hasActiveTeamsClient(state, incident.id);
+  const completeProvider = async () => {
+    setBusy(true);
+    try {
+      await dispatch("COMPLETE_PROVIDER", {
+        incidentId: provider.incidentId,
+        providerId: provider.id,
+        details,
+        timestamp: localInputToIso(timestamp)
+      });
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const completeProviderAndIncident = async () => {
+    setBusy(true);
+    try {
+      await dispatch("COMPLETE_PROVIDER_AND_INCIDENT", {
+        incidentId: provider.incidentId,
+        providerId: provider.id,
+        details,
+        timestamp: localInputToIso(timestamp)
+      });
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const actions = [{
+    label: busy ? "Saving…" : "Complete Provider",
+    onClick: completeProvider,
+    disabled: busy
+  }];
+  if (canCompleteIncident) actions.push({
+    label: "Complete Provider & Incident",
+    onClick: completeProviderAndIncident,
+    disabled: busy,
+    color: "#3FA34D",
+    textColor: "#0d1114"
+  });
+  return /*#__PURE__*/React.createElement(ModalShell, {
+    theme: theme,
+    title: "Complete Provider | Incident"
+  }, /*#__PURE__*/React.createElement(ModalField, {
+    label: "Agency / Company",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 13.5,
+      color: theme.text
+    }
+  }, provider.agency)), /*#__PURE__*/React.createElement(ModalField, {
+    label: "Reference",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 13.5,
+      color: theme.text
+    }
+  }, provider.reference || "—")), /*#__PURE__*/React.createElement(ModalField, {
+    label: "Details",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: details,
+    onChange: e => setDetails(e.target.value),
+    rows: 3,
+    placeholder: "Details Here",
+    style: {
+      ...inputStyle(theme),
+      resize: "vertical"
+    }
+  })), /*#__PURE__*/React.createElement(ModalField, {
+    label: "Timestamp",
+    theme: theme
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "datetime-local",
+    value: timestamp,
+    onChange: e => setTimestamp(e.target.value),
+    style: inputStyle(theme)
+  })), /*#__PURE__*/React.createElement(ModalButtons, {
+    theme: theme,
+    onCancel: onClose,
+    actions: actions
+  }));
+}
+function ProvidersSection({
+  incident,
+  providers,
+  state,
+  theme,
+  dispatch
+}) {
+  const [attaching, setAttaching] = useState(false);
+  const [modal, setModal] = useState(null); // { type: 'cancel'|'refer'|'complete', provider }
+
+  const openModal = (type, provider) => setModal({
+    type,
+    provider: {
+      ...provider,
+      incidentId: incident.id
+    }
+  });
+  const closeModal = () => setModal(null);
+  const statusButtonStyle = (provider, status) => {
+    const isCurrent = provider.status === status;
+    const terminal = provider.status === "Complete" || provider.status === "Cancelled";
+    const disabled = isCurrent || terminal;
+    const color = PROVIDER_STATUS_COLORS[status];
+    return {
+      style: {
+        padding: "6px 12px",
+        borderRadius: 6,
+        fontFamily: theme.fontUi,
+        fontWeight: 700,
+        fontSize: 11.5,
+        background: isCurrent ? color : "none",
+        color: isCurrent ? "#0d1114" : disabled ? theme.textGhost : color,
+        border: `1px solid ${isCurrent ? color : disabled ? theme.border : color + "88"}`,
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled && !isCurrent ? 0.5 : 1
+      },
+      disabled,
+      onClick: () => {
+        if (disabled) return;
+        if (status === "Cancelled") openModal("cancel", provider);else if (status === "Referred") openModal("refer", provider);else if (status === "Complete") openModal("complete", provider);
+      }
+    };
+  };
   return /*#__PURE__*/React.createElement(DetailSection, {
     title: "Providers",
     theme: theme
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => alert("This feature has been disabled."),
+  }, providers.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginBottom: 14
+    }
+  }, providers.map(p => /*#__PURE__*/React.createElement("div", {
+    key: p.id,
+    style: {
+      background: theme.panelAlt,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 8,
+      padding: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontWeight: 700,
+      fontSize: 13.5,
+      color: theme.text,
+      marginBottom: 2
+    }
+  }, p.agency, p.reference ? ` (ref: ${p.reference})` : ""), p.details && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.fontUi,
+      fontSize: 12,
+      color: theme.textFaint,
+      marginBottom: 8
+    }
+  }, p.details), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6
+    }
+  }, PROVIDER_STATUS_ORDER.map(status => {
+    const btn = statusButtonStyle(p, status);
+    return /*#__PURE__*/React.createElement("button", {
+      key: status,
+      style: btn.style,
+      disabled: btn.disabled,
+      onClick: btn.onClick
+    }, status);
+  }))))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setAttaching(true),
     style: {
       background: "none",
       border: `1px solid ${theme.border}`,
@@ -2897,7 +3386,29 @@ function ProvidersSection({
       padding: "8px 14px",
       cursor: "pointer"
     }
-  }, "Attach Provider"));
+  }, "Attach Provider"), attaching && /*#__PURE__*/React.createElement(AttachProviderModal, {
+    incident: incident,
+    theme: theme,
+    dispatch: dispatch,
+    onClose: () => setAttaching(false)
+  }), modal?.type === "cancel" && /*#__PURE__*/React.createElement(CancelProviderModal, {
+    provider: modal.provider,
+    theme: theme,
+    dispatch: dispatch,
+    onClose: closeModal
+  }), modal?.type === "refer" && /*#__PURE__*/React.createElement(ReferProviderModal, {
+    provider: modal.provider,
+    theme: theme,
+    dispatch: dispatch,
+    onClose: closeModal
+  }), modal?.type === "complete" && /*#__PURE__*/React.createElement(CompleteProviderModal, {
+    incident: incident,
+    state: state,
+    provider: modal.provider,
+    theme: theme,
+    dispatch: dispatch,
+    onClose: closeModal
+  }));
 }
 function MapSection({
   theme
@@ -3154,6 +3665,7 @@ function IncidentDetailScreen({
   }
   const timeline = state.incidentTimelines?.[incident.id] || [];
   const notes = state.incidentNotes?.[incident.id] || [];
+  const providers = state.incidentProviders?.[incident.id] || [];
   const tags = Array.isArray(incident.tags) ? incident.tags : [];
   const priColor = priorityDisplayColor(incident, theme);
   const statColor = statusColors[incident.status] || theme.textFaint;
@@ -3322,7 +3834,11 @@ function IncidentDetailScreen({
     theme: theme,
     dispatch: dispatch
   }), /*#__PURE__*/React.createElement(ProvidersSection, {
-    theme: theme
+    incident: incident,
+    providers: providers,
+    state: state,
+    theme: theme,
+    dispatch: dispatch
   }), /*#__PURE__*/React.createElement(MapSection, {
     theme: theme
   }), /*#__PURE__*/React.createElement(AddNoteForm, {
