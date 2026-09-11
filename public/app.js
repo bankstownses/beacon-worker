@@ -321,20 +321,20 @@ function Link({
 const THEMES = {
   dark: {
     name: "dark",
-    bg: "#0C0F12",
-    panel: "#15191D",
-    panelAlt: "#0F1215",
-    border: "#20242A",
-    text: "#E9EBED",
-    textMuted: "#B0B6BC",
-    textFaint: "#7C838B",
-    textGhost: "#4B5158",
-    accent: "#E3A23D",
-    accentText: "#0C0F12",
-    navBg: "#0C0F12",
-    navText: "#E9EBED",
+    bg: "#0B0E11",
+    panel: "#14181B",
+    panelAlt: "#101316",
+    border: "#2A2E33",
+    text: "#E5E8EB",
+    textMuted: "#9399A0",
+    textFaint: "#6C7278",
+    textGhost: "#454A4F",
+    accent: "#F1AA47",
+    accentText: "#180F09",
+    navBg: "#0B0E11",
+    navText: "#E5E8EB",
     navBorder: "#1B1F23",
-    tableHeadBg: "#0C0F12",
+    tableHeadBg: "#0B0E11",
     tableRowBorder: "#1B1F23",
     tableRowHover: "#181C20",
     fontUi: "'Manrope', -apple-system, sans-serif",
@@ -342,22 +342,22 @@ const THEMES = {
   },
   light: {
     name: "light",
-    bg: "#F7F6F3",
+    bg: "#F0F2F4",
     panel: "#FFFFFF",
-    panelAlt: "#F1EFEB",
-    border: "#E4E1DA",
-    text: "#1E1D1B",
-    textMuted: "#57534C",
-    textFaint: "#8A857C",
-    textGhost: "#B4AFA5",
-    accent: "#B5721F",
+    panelAlt: "#F5F7F9",
+    border: "#D5D8DB",
+    text: "#13161A",
+    textMuted: "#595E63",
+    textFaint: "#82878C",
+    textGhost: "#ADB1B5",
+    accent: "#BD7221",
     accentText: "#FFFFFF",
-    navBg: "#F7F6F3",
-    navText: "#1E1D1B",
-    navBorder: "#E4E1DA",
-    tableHeadBg: "#F7F6F3",
-    tableRowBorder: "#EDEAE4",
-    tableRowHover: "#F1EFEB",
+    navBg: "#F0F2F4",
+    navText: "#13161A",
+    navBorder: "#D5D8DB",
+    tableHeadBg: "#F0F2F4",
+    tableRowBorder: "#E4E6E8",
+    tableRowHover: "#F5F7F9",
     fontUi: "'Manrope', -apple-system, sans-serif",
     fontMono: "'JetBrains Mono', monospace"
   }
@@ -890,15 +890,32 @@ function FieldSet({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontFamily: "'Manrope', sans-serif",
-      fontSize: 15,
-      fontWeight: 700,
-      color: theme.text,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
       borderBottom: `1px solid ${theme.border}`,
       paddingBottom: 10,
       marginBottom: 16
     }
-  }, title), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 4,
+      height: 13,
+      borderRadius: 2,
+      background: theme.accent,
+      flexShrink: 0
+    }
+  }), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontFamily: theme.fontMono,
+      fontSize: 11,
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.14em",
+      color: theme.accent,
+      margin: 0
+    }
+  }, title)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
@@ -1846,15 +1863,32 @@ function DetailSection({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 15,
-      fontWeight: 700,
-      color: theme.text,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
       borderBottom: `1px solid ${theme.border}`,
       paddingBottom: 10,
-      marginBottom: 12,
-      fontFamily: "'Manrope', sans-serif"
+      marginBottom: 12
     }
-  }, title), children);
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 4,
+      height: 13,
+      borderRadius: 2,
+      background: theme.accent,
+      flexShrink: 0
+    }
+  }), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontFamily: theme.fontMono,
+      fontSize: 11,
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.14em",
+      color: theme.accent,
+      margin: 0
+    }
+  }, title)), children);
 }
 function resizeImageFile(file, maxDim, quality) {
   return new Promise((resolve, reject) => {
